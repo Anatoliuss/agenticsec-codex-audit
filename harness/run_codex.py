@@ -59,20 +59,21 @@ def checkout_repo(sample: common.Sample, workdir: Path) -> Path:
     return src
 
 
-def build_codex_cmd(cfg: dict, system: str, task: str, workdir: Path) -> list[str]:
+def build_codex_cmd(cfg: dict, system: str, task: str) -> list[str]:
+    """Build the `codex exec` command. The runner sets cwd to the checkout, so
+    no --cd is needed. Verify flags against `codex exec --help` for your Codex
+    version; version-specific flags can be added via codex.extra_args."""
     c = cfg["codex"]
     prompt = f"{system}\n\n---\n\n{task}"
-    cmd = [
-        c.get("bin", "codex"), "exec",
-        "--json",
-        "--model", c["model"],
-        "--sandbox", c.get("sandbox", "workspace-write"),
-        "--cd", str(workdir),
-        "--skip-git-repo-check",
-    ]
-    ap = c.get("approval_policy")
-    if ap:
-        cmd += ["--ask-for-approval", ap] if ap != "never" else ["--dangerously-bypass-approvals-and-sandbox"] if c.get("sandbox") == "danger-full-access" else ["-a", "never"]
+    cmd = [c.get("bin", "codex"), "exec", "--json", "-m", c["model"]]
+    sandbox = c.get("sandbox", "workspace-write")
+    if sandbox == "danger-full-access":
+        cmd.append("--dangerously-bypass-approvals-and-sandbox")
+    elif c.get("full_auto", True):
+        # --full-auto == workspace-write sandbox + non-interactive approvals.
+        cmd.append("--full-auto")
+    else:
+        cmd += ["--sandbox", sandbox]
     cmd += list(c.get("extra_args", []))
     cmd += [prompt]
     return cmd
@@ -142,11 +143,11 @@ def run_one(sample: common.Sample, configuration: str, cfg: dict,
     final_text = ""
     try:
         src = checkout_repo(sample, workdir)
-        cmd = build_codex_cmd(cfg, system, task, src)
+        cmd = build_codex_cmd(cfg, system, task)
         budget = int(c.get("time_budget_seconds", 7200))
         with open(transcript_path, "w", encoding="utf-8") as tf:
             proc = subprocess.run(
-                cmd, stdout=tf, stderr=subprocess.STDOUT,
+                cmd, cwd=str(src), stdout=tf, stderr=subprocess.STDOUT,
                 timeout=budget, check=False,
             )
         record["exit_code"] = proc.returncode

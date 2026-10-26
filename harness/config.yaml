@@ -7,7 +7,12 @@ codex:
   model: gpt-5.4-codex
   reasoning_effort: high
   # Sandbox + approvals: Codex may read, build, and run inside the workdir only.
+  # full_auto=true runs `codex exec --full-auto` (workspace-write + no
+  # interactive approvals) so unattended runs don't stall. Set sandbox to
+  # danger-full-access only if a build needs network/extra access AND you trust
+  # the target; then the runner passes --dangerously-bypass-approvals-and-sandbox.
   sandbox: workspace-write
+  full_auto: true
   approval_policy: never
   # Hard wall-clock budget per run (seconds). Matches the 2-hour audit budget
   # used for the agentic baselines in the Veritas paper.
