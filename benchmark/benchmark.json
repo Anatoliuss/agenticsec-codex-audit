@@ -1,0 +1,61 @@
+{
+  "benchmark": "AgenticSec Codex audit — VERITAS P8-P10 subset",
+  "source_paper": {
+    "title": "Veritas: Grounding LLM Agents for Reliable Vulnerability Reasoning over Stripped Binaries",
+    "arxiv": "https://arxiv.org/abs/2605.15097",
+    "table": "Table I (Statistics of the Evaluated Projects)"
+  },
+  "vuln_class_scope": "out-of-bounds (OOB read/write); Veritas is instantiated for OOB only",
+  "compile_protocol": "-O0; a stripped binary is produced for binary-level audit, an unstripped one for ground-truth mapping, and an ASan build for PoC reproduction.",
+  "samples": [
+    {
+      "sample_id": "P08_ezxml_dcb1748",
+      "veritas_id": "P8",
+      "project": "ezxml",
+      "commit": "dcb17484da2591e42c739598729fe5bdf687cca6",
+      "binary": "ezxml",
+      "num_vuln": 2,
+      "cves": ["CVE-2021-31229", "CVE-2021-31348"],
+      "vulnerable_functions": ["ezxml_internal_dtd", "ezxml_parse_str"],
+      "confidence": "high",
+      "path": "samples/P08_ezxml_dcb1748"
+    },
+    {
+      "sample_id": "P09a_libredwg_5f99814",
+      "veritas_id": "P9",
+      "project": "libredwg",
+      "commit": "5f998146dd695a8b4bfdbd21c233e42fbb94e90d",
+      "binary": "dwg2SVG",
+      "num_vuln": 1,
+      "cves": ["CVE-2020-21818", "CVE-2020-21816", "CVE-2020-21819"],
+      "vulnerable_functions": ["htmlescape"],
+      "confidence": "high",
+      "path": "samples/P09a_libredwg_5f99814"
+    },
+    {
+      "sample_id": "P09b_libredwg_93c2512",
+      "veritas_id": "P9",
+      "project": "libredwg",
+      "commit": "93c25124c191987af168ace9fe4b5623061874bd",
+      "binary": "dwg2dxf",
+      "num_vuln": 1,
+      "cves": ["CVE-2023-25222"],
+      "vulnerable_functions": ["bit_read_RC"],
+      "confidence": "medium",
+      "needs_confirmation": true,
+      "path": "samples/P09b_libredwg_93c2512"
+    },
+    {
+      "sample_id": "P10_faad2_1073aee",
+      "veritas_id": "P10",
+      "project": "faad2",
+      "commit": "1073aeef823cafd844704389e9a497c257768e2f",
+      "binary": "faad",
+      "num_vuln": 1,
+      "cves": ["CVE-2021-32272"],
+      "vulnerable_functions": ["stszin"],
+      "confidence": "high",
+      "path": "samples/P10_faad2_1073aee"
+    }
+  ]
+}

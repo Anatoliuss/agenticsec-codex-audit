@@ -1,0 +1,39 @@
+{
+  "judge_id": "judge__P09a_libredwg_5f99814__zero_shot__r0__fixture01__d7f53d",
+  "run_id": "P09a_libredwg_5f99814__zero_shot__r0__fixture01",
+  "sample_id": "P09a_libredwg_5f99814",
+  "configuration": "zero_shot",
+  "judge_model": "deterministic-matcher-v1",
+  "judge_mode": "deterministic",
+  "judged_at": "2026-10-26T13:11:05.716474+00:00",
+  "ground_truth_ref": "benchmark/samples/P09a_libredwg_5f99814/ground_truth.json",
+  "per_vuln": [
+    {
+      "vuln_id": "P09a-V1",
+      "cve": "CVE-2020-21816 / CVE-2020-21818 / CVE-2020-21819",
+      "vulnerable_function": "htmlescape",
+      "verdict": "missed",
+      "located_function": false,
+      "match_type": "none",
+      "matching_finding_id": null,
+      "explanation_quality": "n/a",
+      "reasoning": "No reported finding named the vulnerable function 'htmlescape' or an alias, and none fell within its known line span."
+    }
+  ],
+  "other_findings": [
+    {
+      "finding_id": "F1",
+      "vulnerable_function": "dwg_decode_eed",
+      "file": "src/decode.c",
+      "judge_label": "possible_true_positive_unknown",
+      "reasoning": "Does not match the ground-truth vulnerable function; requires manual validation to classify as TP or FP.",
+      "flag": "manual_validation_required"
+    }
+  ],
+  "overall": {
+    "located_count": 0,
+    "total_vulns": 1,
+    "run_status": "timeout",
+    "summary_reasoning": "0/1 ground-truth vulnerabilities located (run status: timeout)."
+  }
+}

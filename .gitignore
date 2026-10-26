@@ -1,0 +1,14 @@
+# real experiment outputs land in results/ ; keep fixtures, ignore the rest
+results/*.json
+results/*.jsonl
+!results/fixtures/
+reports/out/
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+# built binaries / scratch
+artifacts/
+out/
+*.o
+*.a

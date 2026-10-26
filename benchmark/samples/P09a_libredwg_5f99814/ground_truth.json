@@ -1,0 +1,44 @@
+{
+  "sample_id": "P09a_libredwg_5f99814",
+  "project": "libredwg",
+  "commit": "5f998146dd695a8b4bfdbd21c233e42fbb94e90d",
+  "binary": "dwg2SVG",
+  "vulnerabilities": [
+    {
+      "vuln_id": "P09a-V1",
+      "cve": "CVE-2020-21816 / CVE-2020-21818 / CVE-2020-21819",
+      "cve_primary": "CVE-2020-21818",
+      "bug_class": "out-of-bounds write (heap-buffer-overflow)",
+      "cwe": "CWE-787",
+      "cwe_family": "memory corruption / out-of-bounds",
+      "vulnerable_function": "htmlescape",
+      "file": "programs/escape.c",
+      "function_decl_line": 27,
+      "alloc_line": 35,
+      "sink_hint_lines": [46, 48, 51],
+      "sink_description": "htmlescape() allocates `malloc(strlen(src)+10)` then strcat()s multi-byte HTML entity replacements (e.g. \"&quot;\" = 6 bytes) while advancing with an off-by-one `while(*s++)` loop and a too-loose `off >= len-8` guard, so a text value with many escapable characters overruns the heap buffer. Reached from output_TEXT() at dwg2SVG.c:135 / :400.",
+      "trigger_path": [
+        "main (programs/dwg2SVG.c:979) -> dwg_read_file -> output_TEXT (programs/dwg2SVG.c:117)",
+        "output_TEXT -> htmlescape(text->text_value, codepage) (programs/dwg2SVG.c:135)",
+        "htmlescape strcat loop (programs/escape.c:46-51)"
+      ],
+      "severity_cvss_v3": 8.8,
+      "match_aliases": ["htmlescape", "htmlwescape", "output_TEXT"],
+      "fix_commits": [
+        "7e4c59b63d9c5b4b513cba1d0f33612042524563 (htmlescape: calloc + end-check + NUL termination)",
+        "e8c3edb987ce5602c2daca8e1593d7d1c95befdb (htmlwescape: same fix)"
+      ],
+      "evidence": {
+        "type": "cve_issue_and_patch",
+        "issue": "https://github.com/LibreDWG/libredwg/issues/182",
+        "asan_summary": "heap-buffer-overflow READ/WRITE in htmlescape via strcat, ../../programs/escape.c:46/48/51, called from output_TEXT at dwg2SVG.c",
+        "cve_records": [
+          "https://cveawg.mitre.org/api/cve/CVE-2020-21816",
+          "https://cveawg.mitre.org/api/cve/CVE-2020-21818",
+          "https://cveawg.mitre.org/api/cve/CVE-2020-21819"
+        ],
+        "note": "CVE-2020-21816/21818/21819 are the same htmlescape heap overflow pinned to escape.c lines 46/48/51 in GNU LibreDWG 0.10.2641; Veritas records a single ground-truth OOB for this commit."
+      }
+    }
+  ]
+}

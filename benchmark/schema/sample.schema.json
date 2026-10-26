@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "sample.schema.json",
+  "title": "Benchmark sample metadata",
+  "type": "object",
+  "required": ["sample_id", "project", "repo_url", "commit", "binary", "num_vuln", "ground_truth_ref", "validation"],
+  "properties": {
+    "sample_id": {"type": "string"},
+    "veritas_id": {"type": "string"},
+    "project": {"type": "string"},
+    "repo_url": {"type": "string", "format": "uri"},
+    "upstream_note": {"type": "string"},
+    "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "commit_short": {"type": "string"},
+    "commit_date": {"type": "string"},
+    "version_describe": {"type": "string"},
+    "binary": {"type": "string"},
+    "binary_build_target": {"type": "string"},
+    "entrypoint": {"type": "string"},
+    "trigger_input": {"type": "string"},
+    "num_vuln_files": {"type": "integer"},
+    "vuln_files": {"type": "array", "items": {"type": "string"}},
+    "num_vuln": {"type": "integer", "minimum": 1},
+    "veritas_stats": {"type": "object"},
+    "vuln_class_scope": {"type": "string"},
+    "ground_truth_ref": {"type": "string"},
+    "validation": {
+      "type": "object",
+      "required": ["cve_ids_validated", "vuln_function_present_in_source", "confidence"],
+      "properties": {
+        "cve_ids_validated": {"type": "boolean"},
+        "vuln_function_present_in_source": {"type": "boolean"},
+        "build_recipe_provided": {"type": "boolean"},
+        "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        "needs_confirmation": {"type": "boolean"}
+      }
+    }
+  }
+}

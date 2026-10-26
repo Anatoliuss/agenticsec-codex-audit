@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "run_record.schema.json",
+  "title": "Codex audit run record",
+  "description": "Everything needed to reproduce and adjudicate one Codex audit run.",
+  "type": "object",
+  "required": [
+    "run_id", "sample_id", "configuration", "model", "repo_revision",
+    "started_at", "finished_at", "runtime_seconds", "status",
+    "known_cve", "known_vulnerable_functions"
+  ],
+  "properties": {
+    "run_id": {"type": "string"},
+    "sample_id": {"type": "string"},
+    "configuration": {"type": "string", "enum": ["zero_shot", "cve_hinted"]},
+    "model": {"type": "string", "description": "e.g. gpt-5.4-codex"},
+    "model_settings": {
+      "type": "object",
+      "properties": {
+        "reasoning_effort": {"type": "string"},
+        "temperature": {"type": ["number", "null"]},
+        "sandbox": {"type": "string"},
+        "approval_policy": {"type": "string"},
+        "time_budget_seconds": {"type": "integer"},
+        "tools": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "repo_url": {"type": "string"},
+    "repo_revision": {"type": "string"},
+    "binary": {"type": "string"},
+    "hint": {
+      "type": ["object", "null"],
+      "description": "cve_hinted only; null/absent for zero_shot.",
+      "properties": {
+        "cve_id": {"type": "string"},
+        "hint_text": {"type": "string"},
+        "withheld": {"type": "array", "items": {"type": "string"},
+          "description": "info deliberately NOT given, e.g. vulnerable-function name."}
+      }
+    },
+    "prompt_system_sha256": {"type": "string"},
+    "prompt_task_sha256": {"type": "string"},
+    "prompt_task_rendered": {"type": "string"},
+    "started_at": {"type": "string", "format": "date-time"},
+    "finished_at": {"type": "string", "format": "date-time"},
+    "runtime_seconds": {"type": "number"},
+    "status": {"type": "string", "enum": ["ok", "timeout", "build_failure", "input_failure", "malformed_output", "no_output", "error"]},
+    "exit_code": {"type": ["integer", "null"]},
+    "raw_transcript_path": {"type": "string", "description": "relative path to the raw codex JSONL event log."},
+    "parsed_findings": {"type": ["object", "null"], "description": "parsed findings object (finding.schema.json), or null if unparseable."},
+    "parse_error": {"type": ["string", "null"]},
+    "known_cve": {"type": "array", "items": {"type": "string"}},
+    "known_vulnerable_functions": {"type": "array", "items": {"type": "string"}},
+    "notes": {"type": "string"}
+  }
+}

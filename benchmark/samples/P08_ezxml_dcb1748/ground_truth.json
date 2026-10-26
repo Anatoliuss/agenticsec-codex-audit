@@ -1,0 +1,48 @@
+{
+  "sample_id": "P08_ezxml_dcb1748",
+  "project": "ezxml",
+  "commit": "dcb17484da2591e42c739598729fe5bdf687cca6",
+  "binary": "ezxml",
+  "vulnerabilities": [
+    {
+      "vuln_id": "P08-V1",
+      "cve": "CVE-2021-31229",
+      "bug_class": "out-of-bounds write",
+      "cwe": "CWE-787",
+      "cwe_family": "memory corruption / out-of-bounds",
+      "vulnerable_function": "ezxml_internal_dtd",
+      "file": "ezxml.c",
+      "function_decl_line": 319,
+      "sink_hint_line": 333,
+      "sink_description": "While parsing a crafted internal DTD, a one-byte constant (';') is written past the end of the buffer: `*(s = n + strcspn(n, EZXML_WS)) = ';';` with insufficient bounds checking on the DTD token region.",
+      "severity_cvss_v3": 7.8,
+      "evidence": {
+        "type": "cve_and_tracker",
+        "cve_record": "https://cve.org/CVERecord?id=CVE-2021-31229",
+        "bug_tracker": "https://sourceforge.net/p/ezxml/bugs/26/",
+        "distro_advisory": "https://lists.debian.org/debian-lts-announce/2021/07/msg00005.html",
+        "note": "Reported against libezxml.a in ezXML 0.8.6; function and sink located directly in the dcb1748 tree."
+      }
+    },
+    {
+      "vuln_id": "P08-V2",
+      "cve": "CVE-2021-31348",
+      "bug_class": "out-of-bounds read",
+      "cwe": "CWE-125",
+      "cwe_family": "memory corruption / out-of-bounds",
+      "vulnerable_function": "ezxml_parse_str",
+      "file": "ezxml.c",
+      "function_decl_line": 470,
+      "sink_description": "Out-of-bounds read while parsing a crafted XML file: after a strcspn scan reaches the end of the buffer, subsequent dereferences read past the input. Note: some secondary sources attribute this CVE to ezxml_internal_dtd; the OSV/SourceForge primary record names ezxml_parse_str, which is used here as the single ground-truth function so it does not collide with V1.",
+      "severity_cvss_v3": 7.1,
+      "match_aliases": ["ezxml_parse_str"],
+      "evidence": {
+        "type": "cve_and_tracker",
+        "cve_record": "https://cve.org/CVERecord?id=CVE-2021-31348",
+        "bug_tracker": "https://sourceforge.net/p/ezxml/bugs/27/",
+        "distro_advisory": "https://lists.debian.org/debian-lts-announce/2021/07/msg00005.html",
+        "note": "OSV description: `ezxml_parse_str()` performs incorrect memory handling (out-of-bounds read after strcspn failure) while parsing crafted XML files."
+      }
+    }
+  ]
+}

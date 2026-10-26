@@ -1,0 +1,50 @@
+{
+  "judge_id": "judge__P08_ezxml_dcb1748__zero_shot__r0__fixture01__077ecb",
+  "run_id": "P08_ezxml_dcb1748__zero_shot__r0__fixture01",
+  "sample_id": "P08_ezxml_dcb1748",
+  "configuration": "zero_shot",
+  "judge_model": "deterministic-matcher-v1",
+  "judge_mode": "deterministic",
+  "judged_at": "2026-10-26T13:11:05.639705+00:00",
+  "ground_truth_ref": "benchmark/samples/P08_ezxml_dcb1748/ground_truth.json",
+  "per_vuln": [
+    {
+      "vuln_id": "P08-V1",
+      "cve": "CVE-2021-31229",
+      "vulnerable_function": "ezxml_internal_dtd",
+      "verdict": "identified",
+      "located_function": true,
+      "match_type": "exact",
+      "matching_finding_id": "F1",
+      "explanation_quality": "correct",
+      "reasoning": "Matcher located the vulnerable function via exact match (finding F1 -> ezxml_internal_dtd)."
+    },
+    {
+      "vuln_id": "P08-V2",
+      "cve": "CVE-2021-31348",
+      "vulnerable_function": "ezxml_parse_str",
+      "verdict": "missed",
+      "located_function": false,
+      "match_type": "none",
+      "matching_finding_id": null,
+      "explanation_quality": "n/a",
+      "reasoning": "No reported finding named the vulnerable function 'ezxml_parse_str' or an alias, and none fell within its known line span."
+    }
+  ],
+  "other_findings": [
+    {
+      "finding_id": "F2",
+      "vulnerable_function": "ezxml_decode",
+      "file": "ezxml.c",
+      "judge_label": "possible_true_positive_unknown",
+      "reasoning": "Does not match the ground-truth vulnerable function; requires manual validation to classify as TP or FP.",
+      "flag": "manual_validation_required"
+    }
+  ],
+  "overall": {
+    "located_count": 1,
+    "total_vulns": 2,
+    "run_status": "ok",
+    "summary_reasoning": "1/2 ground-truth vulnerabilities located (run status: ok)."
+  }
+}

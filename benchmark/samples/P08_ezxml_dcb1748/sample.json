@@ -1,0 +1,29 @@
+{
+  "sample_id": "P08_ezxml_dcb1748",
+  "veritas_id": "P8",
+  "project": "ezxml",
+  "repo_url": "https://github.com/lxfontes/ezxml",
+  "upstream_note": "lxfontes/ezxml is a GitHub mirror of Lucas Fontes' ezXML 0.8.6; HEAD (dcb1748) is the last commit (2011-12-29) and is unpatched, so the 2021 CVEs reported against ezXML 0.8.6 apply directly to this tree.",
+  "commit": "dcb17484da2591e42c739598729fe5bdf687cca6",
+  "commit_short": "dcb1748",
+  "commit_date": "2011-12-29",
+  "binary": "ezxml",
+  "binary_build_target": "make test  (defines EZXML_TEST, links ezxml.o into the `ezxml` test driver)",
+  "entrypoint": "main() in ezxml.c under #ifdef EZXML_TEST (line 1000); parses an XML file given as argv[1]",
+  "trigger_input": "crafted XML file passed as the first CLI argument",
+  "num_vuln_files": 1,
+  "vuln_files": ["ezxml.c"],
+  "num_vuln": 2,
+  "veritas_stats": {"ir_inst": 6876, "func": 33, "vuln_files": 1, "vuln": 2},
+  "vuln_class_scope": "out-of-bounds (Veritas is instantiated for OOB only)",
+  "ground_truth_ref": "ground_truth.json",
+  "validation": {
+    "cve_ids_validated": true,
+    "vuln_function_present_in_source": true,
+    "build_recipe_provided": true,
+    "binary_artifact_recipe": "Dockerfile + build.sh (-O0, stripped and unstripped, plus ASan variant)",
+    "poc_source": "public (SourceForge ezxml bug tracker #26, #27; Debian LTS DLA batch)",
+    "validated_by": "patch/CVE cross-reference (function names located at the exact commit; lines cited below)",
+    "confidence": "high"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "judge_id": "judge__P09a_libredwg_5f99814__cve_hinted__r0__fixture01__9f5438",
+  "run_id": "P09a_libredwg_5f99814__cve_hinted__r0__fixture01",
+  "sample_id": "P09a_libredwg_5f99814",
+  "configuration": "cve_hinted",
+  "judge_model": "deterministic-matcher-v1",
+  "judge_mode": "deterministic",
+  "judged_at": "2026-10-26T13:11:05.716038+00:00",
+  "ground_truth_ref": "benchmark/samples/P09a_libredwg_5f99814/ground_truth.json",
+  "per_vuln": [
+    {
+      "vuln_id": "P09a-V1",
+      "cve": "CVE-2020-21816 / CVE-2020-21818 / CVE-2020-21819",
+      "vulnerable_function": "htmlescape",
+      "verdict": "identified",
+      "located_function": true,
+      "match_type": "exact",
+      "matching_finding_id": "F1",
+      "explanation_quality": "correct",
+      "reasoning": "Matcher located the vulnerable function via exact match (finding F1 -> htmlescape)."
+    }
+  ],
+  "other_findings": [],
+  "overall": {
+    "located_count": 1,
+    "total_vulns": 1,
+    "run_status": "ok",
+    "summary_reasoning": "1/1 ground-truth vulnerabilities located (run status: ok)."
+  }
+}

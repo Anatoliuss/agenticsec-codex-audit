@@ -1,0 +1,41 @@
+{
+  "sample_id": "P10_faad2_1073aee",
+  "project": "faad2",
+  "commit": "1073aeef823cafd844704389e9a497c257768e2f",
+  "binary": "faad",
+  "vulnerabilities": [
+    {
+      "vuln_id": "P10-V1",
+      "cve": "CVE-2021-32272",
+      "bug_class": "out-of-bounds write (heap-buffer-overflow via integer overflow)",
+      "cwe": "CWE-787",
+      "cwe_secondary": "CWE-190",
+      "cwe_family": "memory corruption / out-of-bounds",
+      "vulnerable_function": "stszin",
+      "file": "frontend/mp4read.c",
+      "function_decl_line": 336,
+      "alloc_line": 348,
+      "sink_hint_line": 355,
+      "sink_description": "stszin() reads the stsz entry count into mp4config.frame.ents (a u32). `malloc(sizeof(*data) * (ents + 1))` overflows to malloc(0) when ents == 0xFFFFFFFF, and the subsequent `mp4config.frame.data[0] = ofs;` plus the per-entry loop write past the zero-size allocation.",
+      "trigger_path": [
+        "faad_main (main.c:1323) -> decodeMP4file (main.c:830) -> mp4read_open (mp4read.c:1005)",
+        "parse -> moovin (mp4read.c:867) -> parse -> stszin (mp4read.c:336)",
+        "integer overflow at malloc (mp4read.c:348); OOB write at mp4read.c:355"
+      ],
+      "severity_cvss_v3": 7.8,
+      "match_aliases": ["stszin"],
+      "fix_commits": [
+        "1b71a6ba963d131375f5e489b3b25e36f19f3f24 (fix heap-buffer-overflow in mp4read.c: reject ents == (uint32_t)-1)",
+        "f97f6e933a4ee3cf00b4e1ba4e3a1f05bc9de165 (release 2.10.0 containing the fix)"
+      ],
+      "evidence": {
+        "type": "cve_issue_and_patch",
+        "issue": "https://github.com/knik0/faad2/issues/57",
+        "asan_summary": "heap-buffer-overflow WRITE of size 4 at stszin mp4read.c:355:29, overflowed region alloc'd at mp4read.c:348",
+        "reproduce": "CFLAGS='-g -fsanitize=address' LDFLAGS='-fsanitize=address' ./configure --enable-shared=no && ./frontend/faad -w -b 5 <poc>",
+        "cve_record": "https://cve.org/CVERecord?id=CVE-2021-32272",
+        "distro_advisory": "https://www.debian.org/security/2022/dsa-5109"
+      }
+    }
+  ]
+}
