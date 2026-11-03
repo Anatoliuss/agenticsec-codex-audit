@@ -1,0 +1,9 @@
+{
+  "codex_bin": "codex",
+  "model": "gpt-6.1-sol",
+  "reasoning_effort": "medium",
+  "sandbox": "workspace-write",
+  "time_budget_seconds": 540,
+  "judge_model": "gpt-6-astra",
+  "codex_extra_args": ["-c", "web_search=\"disabled\"", "--disable", "browser_use", "--disable", "computer_use", "--disable", "apps"]
+}

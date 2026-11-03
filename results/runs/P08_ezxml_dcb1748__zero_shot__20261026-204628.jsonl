@@ -1,0 +1,9 @@
+2026-10-26T16:46:35.149534Z ERROR codex_models_manager::manager: failed to refresh available models: request timed out
+2026-10-26T16:46:35.317750Z ERROR codex_models_manager::manager: failed to refresh available models: request timed out
+{"type":"thread.started","thread_id":"01a1791b-3b9a-7dd3-93a9-276600d99f39"}
+2026-10-26T16:46:40.847438Z ERROR codex_models_manager::manager: failed to refresh available models: request timed out
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"I’ll inspect the parser’s input handling and buffer operations, then check whether the available tools support testing suspected failures.\n"}}
+2026-10-26T16:47:16.835046Z ERROR codex_core::tools::router: error=exec_command failed: CreateProcess { message: "Rejected(\"`\\\"C:\\\\\\\\Windows\\\\\\\\System32\\\\\\\\WindowsPowerShell\\\\\\\\v1.0\\\\\\\\powershell.exe\\\" -Command 'Get-ChildItem -Force; rg --files'` rejected: blocked by policy\")" }
+{"type":"error","message":"This content was flagged for possible cybersecurity risk. If this seems wrong, try rephrasing your request. If you’re doing authorized security work that requires more cyber permissive safeguards, apply for Daybreak access via https://platform.openai.com/settings/organization/status-and-access before retrying."}
+{"type":"turn.failed","error":{"message":"This content was flagged for possible cybersecurity risk. If this seems wrong, try rephrasing your request. If you’re doing authorized security work that requires more cyber permissive safeguards, apply for Daybreak access via https://platform.openai.com/settings/organization/status-and-access before retrying."}}

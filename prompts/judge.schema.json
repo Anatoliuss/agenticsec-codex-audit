@@ -1,0 +1,36 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["per_vuln", "other_findings", "summary_reasoning"],
+  "properties": {
+    "per_vuln": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["vuln_id", "verdict", "explanation_quality", "matching_finding_id", "reasoning"],
+        "properties": {
+          "vuln_id": {"type": "string"},
+          "verdict": {"type": "string", "enum": ["identified", "partially_identified", "missed"]},
+          "explanation_quality": {"type": "string", "enum": ["correct", "plausible", "insufficient_evidence", "incorrect", "n/a"]},
+          "matching_finding_id": {"type": ["string", "null"]},
+          "reasoning": {"type": "string"}
+        }
+      }
+    },
+    "other_findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["finding_id", "label", "reasoning"],
+        "properties": {
+          "finding_id": {"type": "string"},
+          "label": {"type": "string", "enum": ["likely_true_positive", "likely_false_positive", "unclear"]},
+          "reasoning": {"type": "string"}
+        }
+      }
+    },
+    "summary_reasoning": {"type": "string"}
+  }
+}

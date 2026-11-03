@@ -1,0 +1,55 @@
+{
+  "run_id": "P08_ezxml_dcb1748__zero_shot__20261026-204628",
+  "sample_id": "P08_ezxml_dcb1748",
+  "configuration": "zero_shot",
+  "links": {
+    "run_record": "results/runs/P08_ezxml_dcb1748__zero_shot__20261026-204628.json",
+    "ground_truth": [
+      "benchmark/samples.json#P08_ezxml_dcb1748/P08-V1",
+      "benchmark/samples.json#P08_ezxml_dcb1748/P08-V2"
+    ]
+  },
+  "judged_at": "2026-10-26T16:48:28+00:00",
+  "judge_mode": "matcher",
+  "judge_model": null,
+  "judge_prompt": null,
+  "judge_raw_response": null,
+  "judge_error": null,
+  "per_vuln": [
+    {
+      "vuln_id": "P08-V1",
+      "cve": "CVE-2021-31229",
+      "vulnerable_function": "ezxml_internal_dtd",
+      "matcher": {
+        "match_type": "none",
+        "finding_id": null
+      },
+      "verdict": "missed",
+      "explanation_quality": "n/a",
+      "matching_finding_id": null,
+      "reasoning": "Run status 'error': no findings to judge."
+    },
+    {
+      "vuln_id": "P08-V2",
+      "cve": "CVE-2021-31348",
+      "vulnerable_function": "ezxml_parse_str",
+      "matcher": {
+        "match_type": "none",
+        "finding_id": null
+      },
+      "verdict": "missed",
+      "explanation_quality": "n/a",
+      "matching_finding_id": null,
+      "reasoning": "Run status 'error': no findings to judge."
+    }
+  ],
+  "other_findings": [],
+  "overall": {
+    "run_status": "error",
+    "total_vulns": 2,
+    "located_exact": 0,
+    "located_incl_aliases": 0,
+    "identified_by_judge": 0,
+    "summary_reasoning": ""
+  }
+}

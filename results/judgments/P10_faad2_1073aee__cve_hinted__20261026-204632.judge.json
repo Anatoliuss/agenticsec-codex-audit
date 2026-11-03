@@ -1,0 +1,41 @@
+{
+  "run_id": "P10_faad2_1073aee__cve_hinted__20261026-204632",
+  "sample_id": "P10_faad2_1073aee",
+  "configuration": "cve_hinted",
+  "links": {
+    "run_record": "results/runs/P10_faad2_1073aee__cve_hinted__20261026-204632.json",
+    "ground_truth": [
+      "benchmark/samples.json#P10_faad2_1073aee/P10-V1"
+    ]
+  },
+  "judged_at": "2026-10-26T16:48:28+00:00",
+  "judge_mode": "matcher",
+  "judge_model": null,
+  "judge_prompt": null,
+  "judge_raw_response": null,
+  "judge_error": null,
+  "per_vuln": [
+    {
+      "vuln_id": "P10-V1",
+      "cve": "CVE-2021-32272",
+      "vulnerable_function": "stszin",
+      "matcher": {
+        "match_type": "none",
+        "finding_id": null
+      },
+      "verdict": "missed",
+      "explanation_quality": "n/a",
+      "matching_finding_id": null,
+      "reasoning": "Run status 'error': no findings to judge."
+    }
+  ],
+  "other_findings": [],
+  "overall": {
+    "run_status": "error",
+    "total_vulns": 1,
+    "located_exact": 0,
+    "located_incl_aliases": 0,
+    "identified_by_judge": 0,
+    "summary_reasoning": ""
+  }
+}

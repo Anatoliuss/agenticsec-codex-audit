@@ -1,0 +1,37 @@
+{
+  "sdk_version": "1.59.0",
+  "target": {
+    "project": "jq",
+    "repository": "https://github.com/jqlang/jq",
+    "commit": "f58787c",
+    "cve": "CVE-2026-44777",
+    "cwe": "CWE-674",
+    "annotation_row": 4,
+    "binary": "artifacts/openhands-jq/jq",
+    "manifest": "artifacts/openhands-jq/build.json",
+    "ground_truth": "openhands/ground_truth.json"
+  },
+  "model": {
+    "id": "REQUIRED_MODEL_ID",
+    "revision": "REQUIRED_IMMUTABLE_MODEL_COMMIT",
+    "license": "REQUIRED_MODEL_LICENSE",
+    "base_url": "http://127.0.0.1:8000/v1",
+    "api_key_env": "OPENHANDS_LLM_API_KEY"
+  },
+  "serving": {
+    "engine": "vllm",
+    "image": "REQUIRED_SERVER_IMAGE_AT_SHA256_DIGEST",
+    "command": [],
+    "notes": "Record the exact serving command, quantization, dtype, tensor parallelism and tool-call parser. Do not put credentials here."
+  },
+  "sandbox": {
+    "image": "agenticsec-openhands-tools:local",
+    "cpus": 2,
+    "memory": "4g",
+    "pids_limit": 128,
+    "work_size": "2g"
+  },
+  "sampling": {"temperature": 0.0, "top_p": 1.0, "seed": 42, "max_output_tokens": 4096},
+  "limits": {"time_budget_seconds": 1800, "max_iterations": 60, "command_timeout_seconds": 90},
+  "results_dir": "results/openhands"
+}

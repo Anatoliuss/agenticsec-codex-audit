@@ -1,0 +1,8 @@
+{"type":"thread.started","thread_id":"01a1793a-43d1-7472-8cfd-0c48a55c2e92"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"I’ll inspect the parser and its input paths first, then try to confirm any concrete memory-safety issue with a small reproducer if the build setup allows it."}}
+2026-10-26T17:20:31.898317Z ERROR codex_core::tools::router: error=exec_command failed: CreateProcess { message: "Rejected(\"`\\\"C:\\\\\\\\Windows\\\\\\\\System32\\\\\\\\WindowsPowerShell\\\\\\\\v1.0\\\\\\\\powershell.exe\\\" -Command 'Get-ChildItem -Force | Select-Object Name,Mode'` rejected: blocked by policy\")" }
+2026-10-26T17:20:33.692440Z ERROR codex_core::tools::router: error=exec_command failed: CreateProcess { message: "Rejected(\"`\\\"C:\\\\\\\\Program Files\\\\\\\\Git\\\\\\\\usr\\\\\\\\bin\\\\\\\\bash.exe\\\"` rejected: blocked by policy\")" }
+2026-10-26T17:20:37.551043Z ERROR codex_core::tools::router: error=exec_command failed: CreateProcess { message: "Rejected(\"`\\\"C:\\\\\\\\Windows\\\\\\\\system32\\\\\\\\cmd.exe\\\" /c dir` rejected: blocked by policy\")" }
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"{\"summary\":\"Unable to inspect or build the repository: command execution was blocked by policy for PowerShell, Bash, and cmd.exe. No source-level findings could be substantiated.\",\"findings\":[]}"}}
+{"type":"turn.completed","usage":{"input_tokens":84264,"cached_input_tokens":60928,"cache_write_input_tokens":0,"output_tokens":385,"reasoning_output_tokens":95}}

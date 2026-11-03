@@ -1,0 +1,68 @@
+{
+  "checked_at": "2026-10-26T16:38:01+00:00",
+  "samples": {
+    "P08_ezxml_dcb1748": [
+      {
+        "vuln_id": "P08-V1",
+        "cve": "CVE-2021-31229",
+        "cve_id_well_formed": true,
+        "file": "ezxml.c",
+        "file_exists": true,
+        "function": "ezxml_internal_dtd",
+        "defined_at_line": 319,
+        "expected_line": 319,
+        "ok": true
+      },
+      {
+        "vuln_id": "P08-V2",
+        "cve": "CVE-2021-31348",
+        "cve_id_well_formed": true,
+        "file": "ezxml.c",
+        "file_exists": true,
+        "function": "ezxml_parse_str",
+        "defined_at_line": 470,
+        "expected_line": 470,
+        "ok": true
+      }
+    ],
+    "P09a_libredwg_5f99814": [
+      {
+        "vuln_id": "P09a-V1",
+        "cve": "CVE-2020-21818",
+        "cve_id_well_formed": true,
+        "file": "programs/escape.c",
+        "file_exists": true,
+        "function": "htmlescape",
+        "defined_at_line": 27,
+        "expected_line": 27,
+        "ok": true
+      }
+    ],
+    "P09b_libredwg_93c2512": [
+      {
+        "vuln_id": "P09b-V1",
+        "cve": "CVE-2023-25222",
+        "cve_id_well_formed": true,
+        "file": "src/bits.c",
+        "file_exists": true,
+        "function": "bit_read_RC",
+        "defined_at_line": 311,
+        "expected_line": null,
+        "ok": true
+      }
+    ],
+    "P10_faad2_1073aee": [
+      {
+        "vuln_id": "P10-V1",
+        "cve": "CVE-2021-32272",
+        "cve_id_well_formed": true,
+        "file": "frontend/mp4read.c",
+        "file_exists": true,
+        "function": "stszin",
+        "defined_at_line": 336,
+        "expected_line": 336,
+        "ok": true
+      }
+    ]
+  }
+}

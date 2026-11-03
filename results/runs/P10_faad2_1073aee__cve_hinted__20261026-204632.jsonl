@@ -1,0 +1,7 @@
+2026-10-26T16:46:38.086180Z ERROR codex_models_manager::manager: failed to refresh available models: request timed out
+2026-10-26T16:46:38.174825Z ERROR codex_models_manager::manager: failed to refresh available models: request timed out
+{"type":"thread.started","thread_id":"01a1791b-46cc-7723-8cc3-e0de28f60111"}
+2026-10-26T16:46:43.321988Z ERROR codex_models_manager::manager: failed to refresh available models: request timed out
+{"type":"turn.started"}
+{"type":"error","message":"This content was flagged for possible cybersecurity risk. If this seems wrong, try rephrasing your request. If you’re doing authorized security work that requires more cyber permissive safeguards, apply for Daybreak access via https://platform.openai.com/settings/organization/status-and-access before retrying."}
+{"type":"turn.failed","error":{"message":"This content was flagged for possible cybersecurity risk. If this seems wrong, try rephrasing your request. If you’re doing authorized security work that requires more cyber permissive safeguards, apply for Daybreak access via https://platform.openai.com/settings/organization/status-and-access before retrying."}}

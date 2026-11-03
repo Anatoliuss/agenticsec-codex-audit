@@ -1,0 +1,28 @@
+{
+  "type": "object", "additionalProperties": false,
+  "required": ["summary", "findings"],
+  "properties": {
+    "summary": {"type": "string"},
+    "findings": {"type": "array", "items": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "function", "address", "cwe", "explanation", "evidence", "confidence"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "function": {"type": "string"},
+        "address": {"type": ["string", "null"], "pattern": "^0x[0-9a-fA-F]+$"},
+        "cwe": {"type": ["string", "null"]},
+        "explanation": {"type": "string", "minLength": 1},
+        "confidence": {"enum": ["low", "medium", "high"]},
+        "evidence": {"type": "array", "items": {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind", "reference", "detail"],
+          "properties": {
+            "kind": {"enum": ["disassembly", "decompilation", "dynamic", "strings", "other"]},
+            "reference": {"type": "string"},
+            "detail": {"type": "string"}
+          }
+        }}
+      }
+    }}
+  }
+}

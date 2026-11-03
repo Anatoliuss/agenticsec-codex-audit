@@ -1,0 +1,197 @@
+{
+  "benchmark": "VERITAS Table I, rows P8-P10 (out-of-bounds vulnerabilities only)",
+  "source_paper": "Veritas: Grounding LLM Agents for Reliable Vulnerability Reasoning over Stripped Binaries, https://arxiv.org/abs/2605.15097",
+  "compile_protocol": "-O0; unstripped binary for ground-truth mapping, stripped copy for binary-level audit, ASan build for PoC reproduction (see benchmark/build.sh).",
+  "samples": [
+    {
+      "sample_id": "P08_ezxml_dcb1748",
+      "veritas_id": "P8",
+      "project": "ezxml",
+      "repo_url": "https://github.com/lxfontes/ezxml",
+      "commit": "dcb17484da2591e42c739598729fe5bdf687cca6",
+      "commit_date": "2011-12-29",
+      "binary": "ezxml",
+      "veritas_stats": {"ir_inst": 6876, "func": 33, "vuln_files": 1, "vuln": 2},
+      "validation": {
+        "method": "CVE records + SourceForge bug tracker cross-referenced; both functions located in ezxml.c at this exact commit. lxfontes/ezxml mirrors ezXML 0.8.6 and dcb1748 is its last (unpatched) commit, so the 2021 CVEs against 0.8.6 apply directly.",
+        "poc_source": "public: SourceForge ezxml bugs #26 and #27",
+        "confidence": "high"
+      },
+      "vulnerabilities": [
+        {
+          "vuln_id": "P08-V1",
+          "cve": "CVE-2021-31229",
+          "cwe": "CWE-787",
+          "bug_class": "out-of-bounds write",
+          "vulnerable_function": "ezxml_internal_dtd",
+          "file": "ezxml.c",
+          "function_decl_line": 319,
+          "sink_lines": [333],
+          "sink_description": "While parsing a crafted internal DTD, a one-byte constant (';') is written past the end of the buffer: `*(s = n + strcspn(n, EZXML_WS)) = ';';` with insufficient bounds checking on the DTD token region.",
+          "evidence": {
+            "cve_record": "https://cve.org/CVERecord?id=CVE-2021-31229",
+            "bug_tracker": "https://sourceforge.net/p/ezxml/bugs/26/",
+            "advisory": "https://lists.debian.org/debian-lts-announce/2021/07/msg00005.html",
+            "reproduce": "./ezxml.asan <poc.xml>"
+          }
+        },
+        {
+          "vuln_id": "P08-V2",
+          "cve": "CVE-2021-31348",
+          "cwe": "CWE-125",
+          "bug_class": "out-of-bounds read",
+          "vulnerable_function": "ezxml_parse_str",
+          "file": "ezxml.c",
+          "function_decl_line": 470,
+          "sink_lines": [],
+          "sink_description": "Out-of-bounds read while parsing a crafted XML file: after a strcspn scan reaches the end of the buffer, subsequent dereferences read past the input. Some secondary sources attribute this CVE to ezxml_internal_dtd; the OSV/SourceForge primary record names ezxml_parse_str, used here so it does not collide with V1.",
+          "evidence": {
+            "cve_record": "https://cve.org/CVERecord?id=CVE-2021-31348",
+            "bug_tracker": "https://sourceforge.net/p/ezxml/bugs/27/",
+            "advisory": "https://lists.debian.org/debian-lts-announce/2021/07/msg00005.html",
+            "reproduce": "./ezxml.asan <poc.xml>"
+          }
+        }
+      ]
+    },
+    {
+      "sample_id": "P09a_libredwg_5f99814",
+      "veritas_id": "P9",
+      "project": "libredwg",
+      "repo_url": "https://github.com/LibreDWG/libredwg",
+      "commit": "5f998146dd695a8b4bfdbd21c233e42fbb94e90d",
+      "commit_date": "2020-01-10",
+      "binary": "dwg2SVG",
+      "veritas_stats": {"ir_inst": 966014, "func": 1781, "vuln_files": 3, "vuln": 1},
+      "validation": {
+        "method": "Fix commit 7e4c59b6 ('htmlescape: fix off-by-one and overflow', 2020-01-10) is the same-day descendant of this commit; the pre-fix htmlescape here under-allocates and mis-terminates the escape buffer.",
+        "poc_source": "public: LibreDWG issue #182 ('Several bugs found by fuzzing')",
+        "confidence": "high"
+      },
+      "vulnerabilities": [
+        {
+          "vuln_id": "P09a-V1",
+          "cve": "CVE-2020-21818",
+          "related_cves": ["CVE-2020-21816", "CVE-2020-21819"],
+          "cwe": "CWE-787",
+          "bug_class": "out-of-bounds write (heap-buffer-overflow)",
+          "vulnerable_function": "htmlescape",
+          "match_aliases": ["htmlwescape", "output_TEXT"],
+          "file": "programs/escape.c",
+          "function_decl_line": 27,
+          "sink_lines": [49, 50, 51, 52, 53, 54, 55, 56],
+          "sink_description": "htmlescape() allocates `malloc(strlen(src)+10)` (escape.c:35, uninitialized) then strcat()s multi-byte HTML entity replacements (e.g. \"&quot;\" = 6 bytes, escape.c:49-56) while advancing with an off-by-one `while(*s++)` loop (escape.c:38) and a too-loose `off >= len-8` guard, so a text value with many escapable characters overruns the heap buffer. Reached from output_TEXT() at dwg2SVG.c:135 / :400. The CVE text cites escape.c:46/48/51, which are line numbers from the 0.10.2641 build, not this commit.",
+          "trigger_path": [
+            "main (programs/dwg2SVG.c:979) -> dwg_read_file -> output_TEXT (programs/dwg2SVG.c:117)",
+            "output_TEXT -> htmlescape(text->text_value, codepage) (programs/dwg2SVG.c:135)",
+            "htmlescape strcat loop (programs/escape.c:49-56)"
+          ],
+          "fix_commits": [
+            "7e4c59b63d9c5b4b513cba1d0f33612042524563 (htmlescape: calloc + end-check + NUL termination)",
+            "e8c3edb987ce5602c2daca8e1593d7d1c95befdb (htmlwescape: same fix)"
+          ],
+          "evidence": {
+            "issue": "https://github.com/LibreDWG/libredwg/issues/182",
+            "cve_record": "https://cveawg.mitre.org/api/cve/CVE-2020-21818",
+            "asan_summary": "heap-buffer-overflow in htmlescape via strcat, programs/escape.c:46/48/51, called from output_TEXT (programs/dwg2SVG.c)",
+            "reproduce": "./dwg2SVG.asan <poc.dwg>",
+            "note": "CVE-2020-21816/21818/21819 are the same htmlescape heap overflow pinned to escape.c lines 46/48/51; Veritas records a single ground-truth OOB for this commit. Aliases: htmlwescape has the same bug (fixed in e8c3edb), output_TEXT is the caller."
+          }
+        }
+      ]
+    },
+    {
+      "sample_id": "P09b_libredwg_93c2512",
+      "veritas_id": "P9",
+      "project": "libredwg",
+      "repo_url": "https://github.com/LibreDWG/libredwg",
+      "commit": "93c25124c191987af168ace9fe4b5623061874bd",
+      "commit_date": "2022-09-05",
+      "binary": "dwg2dxf",
+      "veritas_stats": {"ir_inst": 4067615, "func": 2757, "vuln_files": 2, "vuln": 1},
+      "validation": {
+        "method": "93c2512 is an ancestor of the commit tested in issue #615 (3c90dc66) and predates the fix ae09b9b7 ('decode: fail on wrong r2000 Classes header', 2023-01-30).",
+        "poc_source": "public: LibreDWG issue #615",
+        "confidence": "medium",
+        "needs_confirmation": "dwg2dxf reaches several heap OOBs in the DWG decode path. CVE-2023-25222 (bit_read_RC) is the best dwg2dxf-specific public match. If the Veritas artifact names a different sink for this commit, update this entry (see `alternatives`)."
+      },
+      "vulnerabilities": [
+        {
+          "vuln_id": "P09b-V1",
+          "cve": "CVE-2023-25222",
+          "cwe": "CWE-125",
+          "cwe_note": "NVD lists CWE-787; the public ASan report shows a 1-byte READ, so CWE-125 is used here.",
+          "bug_class": "out-of-bounds read (heap-buffer-overflow)",
+          "vulnerable_function": "bit_read_RC",
+          "match_aliases": ["bit_read_RS", "bit_read_RL", "decode_R13_R2000"],
+          "file": "src/bits.c",
+          "sink_lines": [],
+          "sink_description": "While decoding the AcDb:Classes section of a crafted DWG, an invalid section size lets the reader run past the end of the heap-allocated file buffer. ASan (at the reported commit): 1-byte READ one byte left of a 652-byte region in bit_read_RC (src/bits.c:320), reached via bit_read_RS -> bit_read_RL -> decode_R13_R2000 (src/decode.c:682).",
+          "trigger_path": [
+            "main (programs/dwg2dxf.c:258) -> dwg_read_file -> dwg_decode (src/decode.c:225)",
+            "decode_R13_R2000 (src/decode.c:682) -> bit_read_RL -> bit_read_RS -> bit_read_RC (src/bits.c:320)"
+          ],
+          "fix_commits": [
+            "ae09b9b7b51bda4a719279a6ade6dadeaf5ef39f (decode: fail on wrong r2000 Classes header, Fixes GH #615)"
+          ],
+          "evidence": {
+            "issue": "https://github.com/LibreDWG/libredwg/issues/615",
+            "cve_record": "https://cveawg.mitre.org/api/cve/CVE-2023-25222",
+            "reproduce": "./dwg2dxf.asan -b -m <poc.dwg> -o /dev/null"
+          },
+          "alternatives": [
+            {
+              "cve": "CVE-2023-36272",
+              "vulnerable_function": "bit_utf8_to_TU",
+              "file": "src/bits.c",
+              "note": "heap-buffer-overflow in bit_utf8_to_TU (GH #681), reproduced via dwg2SVG rather than dwg2dxf, so a weaker match for this binary. Fix c1ed1d91."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sample_id": "P10_faad2_1073aee",
+      "veritas_id": "P10",
+      "project": "faad2",
+      "repo_url": "https://github.com/knik0/faad2",
+      "commit": "1073aeef823cafd844704389e9a497c257768e2f",
+      "commit_date": "2020-08-17",
+      "binary": "faad",
+      "veritas_stats": {"ir_inst": 77227, "func": 609, "vuln_files": 1, "vuln": 1},
+      "validation": {
+        "method": "Fix commit 1b71a6ba ('fix heap-buffer-overflow in mp4read.c', 2020-08-31) is a descendant of this commit; at 1073aee the stszin() integer-overflow allocation is still present. (1073aee itself fixes a different stack overflow in stringin()/ftypin(), issue #56.)",
+        "poc_source": "public: faad2 issue #57 (PoC attached)",
+        "confidence": "high"
+      },
+      "vulnerabilities": [
+        {
+          "vuln_id": "P10-V1",
+          "cve": "CVE-2021-32272",
+          "cwe": "CWE-787",
+          "bug_class": "out-of-bounds write (heap-buffer-overflow via integer overflow)",
+          "vulnerable_function": "stszin",
+          "file": "frontend/mp4read.c",
+          "function_decl_line": 336,
+          "sink_lines": [348, 355],
+          "sink_description": "stszin() reads the stsz entry count into mp4config.frame.ents (a u32). `malloc(sizeof(*data) * (ents + 1))` overflows to malloc(0) when ents == 0xFFFFFFFF, and the subsequent `mp4config.frame.data[0] = ofs;` plus the per-entry loop write past the zero-size allocation.",
+          "trigger_path": [
+            "faad_main (main.c:1323) -> decodeMP4file (main.c:830) -> mp4read_open (mp4read.c:1005)",
+            "parse -> moovin (mp4read.c:867) -> parse -> stszin (mp4read.c:336)",
+            "integer overflow at malloc (mp4read.c:348); OOB write at mp4read.c:355"
+          ],
+          "fix_commits": [
+            "1b71a6ba963d131375f5e489b3b25e36f19f3f24 (fix heap-buffer-overflow in mp4read.c: reject ents == (uint32_t)-1)"
+          ],
+          "evidence": {
+            "issue": "https://github.com/knik0/faad2/issues/57",
+            "cve_record": "https://cve.org/CVERecord?id=CVE-2021-32272",
+            "advisory": "https://www.debian.org/security/2022/dsa-5109",
+            "asan_summary": "heap-buffer-overflow WRITE of size 4 at stszin mp4read.c:355, region alloc'd at mp4read.c:348",
+            "reproduce": "./faad.asan -w -b 5 <poc.mp4>"
+          }
+        }
+      ]
+    }
+  ]
+}

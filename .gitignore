@@ -1,14 +1,6 @@
-# real experiment outputs land in results/ ; keep fixtures, ignore the rest
-results/*.json
-results/*.jsonl
-!results/fixtures/
-reports/out/
-__pycache__/
-*.pyc
-.venv/
-.pytest_cache/
-# built binaries / scratch
+# results/ is committed on purpose: it holds the experiment outputs
+.cache/
 artifacts/
-out/
-*.o
-*.a
+__pycache__/
+.pytest_cache/
+.venv-openhands/
