@@ -10,7 +10,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from .core import container_runtime, read_json, write_json
+from .core import backend, read_json, sandbox_exec_argv, write_json
 
 
 def create_agent(cfg, system_prompt, execute):
@@ -55,8 +55,9 @@ def create_agent(cfg, system_prompt, execute):
 
 
 class DockerShell:
-    def __init__(self, container, output, timeout):
+    def __init__(self, container, output, timeout, image=None, binary=None, workdir=None):
         self.container, self.output, self.timeout = container, Path(output), timeout
+        self.image, self.binary, self.workdir = image, binary, workdir
         self.calls = 0
 
     def __call__(self, command):
@@ -64,10 +65,9 @@ class DockerShell:
         ref = f'tool-{self.calls:04d}.txt'
         path = self.output / ref
         started = time.monotonic()
-        # command is an argument to bash INSIDE the container, never a host shell.
-        args = [container_runtime(), 'exec', '-w', '/work', self.container,
-                'timeout', '--signal=TERM', '--kill-after=2', str(self.timeout),
-                'bash', '-c', command]
+        # command is an argument to bash INSIDE the sandbox, never a host shell.
+        args = sandbox_exec_argv(self.container, self.image, self.binary, self.workdir,
+                                 command, self.timeout)
         with path.open('w', encoding='utf-8') as stream:
             try:
                 proc = subprocess.run(args, stdout=stream, stderr=subprocess.STDOUT,
@@ -75,7 +75,7 @@ class DockerShell:
                 code = proc.returncode
             except subprocess.TimeoutExpired:
                 code = 124
-                stream.write('\nHost timeout waiting for Docker exec.\n')
+                stream.write('\nHost timeout waiting for sandbox exec.\n')
         with (self.output / 'tools.jsonl').open('a', encoding='utf-8') as stream:
             stream.write(json.dumps(dict(command=command, output=ref, exit_code=code,
                                          runtime_seconds=time.monotonic() - started)) + '\n')
@@ -94,7 +94,13 @@ def main(config_path, prompts_path, output_path, container):
     from openhands.sdk import Conversation
     from openhands.sdk.hooks import HookConfig
 
-    shell = DockerShell(container, out, cfg['limits']['command_timeout_seconds'])
+    # Sandbox parameters written by the runner; empty for the docker container model.
+    spec = read_json(out / 'sandbox.json') if (out / 'sandbox.json').exists() else {}
+    if backend() == 'singularity':
+        # HOME inside the container (version-safe across Singularity 3.x).
+        os.environ.setdefault('SINGULARITYENV_HOME', '/work')
+    shell = DockerShell(container, out, cfg['limits']['command_timeout_seconds'],
+                        image=spec.get('image'), binary=spec.get('binary'), workdir=spec.get('workdir'))
     agent, llm = create_agent(cfg, prompts['system'], shell)
 
     def on_event(event):

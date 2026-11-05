@@ -32,9 +32,10 @@ annotation row 4. These task identifiers have not been independently validated.
 Use Python **3.12+**, Docker with Linux containers/build output support, and
 access to a GPU/model host sized for the open-weight coding model you select.
 On a host without Docker (e.g. many HPC clusters) set `BINARY_EVAL_CONTAINER=podman`
-to use Podman instead; every `build`/`preflight`/`run` command then uses it. The
-runtime used is recorded in each run's provenance. Apptainer/Singularity are not
-command-compatible and would need separate changes.
+(rootless Podman) or `BINARY_EVAL_CONTAINER=singularity`; every `build`/`preflight`/
+`run` command then uses it, and the runtime is recorded in each run's provenance.
+The Singularity path builds jq natively and pulls a CI-built tools image (no Docker,
+no fakeroot needed) — see **[JUBAIL.md](JUBAIL.md)** for the full NYU-Jubail runbook.
 Linux or WSL with Docker integration is the intended execution environment.
 The controller can also run on Windows when Docker is configured correctly.
 No GPU is needed for offline tests. Native Windows/WSL evaluation has not been

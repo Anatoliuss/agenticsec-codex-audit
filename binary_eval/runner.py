@@ -12,9 +12,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.request import Request, urlopen
 
-from .core import (ROOT, CONFIGURATIONS, assess, build_prompts, comparison_key,
-                   container_runtime, parse_findings, read_json, resolve,
-                   sandbox_command, sha256, validate_config, write_json)
+from .core import (ROOT, CONFIGURATIONS, assess, backend, build_prompts, comparison_key,
+                   container_runtime, parse_findings, read_json, resolve, sandbox_command,
+                   sandbox_exec_argv, sandbox_stop_argv, sha256, validate_config, write_json)
 
 
 def command(args, timeout=30):
@@ -47,15 +47,30 @@ def preflight(cfg):
     if importlib.metadata.version('openhands-sdk') != cfg['sdk_version']:
         raise ValueError('Install the pinned openhands/requirements.txt')
     rt = container_runtime()
-    try:  # podman is daemonless and may have no .Server.Version; fall back to --version
-        docker_version = command([rt, 'version', '--format', '{{.Server.Version}}'])
-    except subprocess.SubprocessError:
+    if backend() == 'singularity':
         docker_version = command([rt, '--version'])
-    image = json.loads(command([rt, 'image', 'inspect', cfg['sandbox']['image']]))[0]
-    if image.get('Os') != 'linux' or image.get('Architecture') != 'amd64':
-        raise ValueError('Analysis image must be linux/amd64')
-    if image['Id'] != manifest.get('tools_image_id'):
-        raise ValueError('Analysis image differs from the build manifest; rebuild or restore the recorded image')
+        sif = resolve(cfg['sandbox']['image'])
+        if not sif.exists():
+            raise ValueError(f'Analysis image {sif} not found; run `python -m binary_eval.build` first')
+        image_id = sha256(sif)
+        if image_id != manifest.get('tools_image_id'):
+            raise ValueError('Analysis .sif differs from the build manifest; re-pull or rebuild')
+        image_ref, network_isolation = str(sif), 'singularity --net --network none'
+        versions = command([rt, 'exec', str(sif), 'cat', '/tool-versions.txt'])
+    else:
+        try:  # podman is daemonless and may have no .Server.Version; fall back to --version
+            docker_version = command([rt, 'version', '--format', '{{.Server.Version}}'])
+        except subprocess.SubprocessError:
+            docker_version = command([rt, '--version'])
+        image = json.loads(command([rt, 'image', 'inspect', cfg['sandbox']['image']]))[0]
+        if image.get('Os') != 'linux' or image.get('Architecture') != 'amd64':
+            raise ValueError('Analysis image must be linux/amd64')
+        if image['Id'] != manifest.get('tools_image_id'):
+            raise ValueError('Analysis image differs from the build manifest; rebuild or restore the recorded image')
+        image_id, image_ref, network_isolation = image['Id'], image['Id'], 'docker --network=none'
+        versions = command([rt, 'run', '--rm', '--network=none', '--read-only',
+                            '--cap-drop=ALL', '--security-opt=no-new-privileges', image['Id'],
+                            'cat', '/tool-versions.txt'])
     headers = {}
     key = os.environ.get(cfg['model']['api_key_env'])
     if key:
@@ -65,12 +80,10 @@ def preflight(cfg):
         models = json.load(response)
     if cfg['model']['id'] not in [m.get('id') for m in models.get('data', [])]:
         raise ValueError('Configured model ID is not advertised by the serving endpoint')
-    versions = command([rt, 'run', '--rm', '--network=none', '--read-only',
-                        '--cap-drop=ALL', '--security-opt=no-new-privileges', image['Id'],
-                        'cat', '/tool-versions.txt'])
     return dict(binary=str(binary), binary_sha256=digest, build=manifest,
-                image_id=image['Id'], container_runtime=rt, docker_version=docker_version,
-                tool_versions=versions, model_listing=models,
+                image_id=image_id, image_ref=image_ref, backend=backend(),
+                container_runtime=rt, docker_version=docker_version,
+                network_isolation=network_isolation, tool_versions=versions, model_listing=models,
                 server_provenance='operator-supplied; /models confirms ID, not weights/revision')
 
 
@@ -140,15 +153,25 @@ def run_one(cfg, provenance, batch_id, configuration):
                   raw_trajectory='events.jsonl', tool_log='tools.jsonl')
     write_json(out / 'run.json', record)
     container = 'binary-audit-' + uuid.uuid4().hex
+    workdir = out / 'sandbox-work'
     start = time.monotonic()
     try:
-        args = sandbox_command(container, provenance['image_id'], provenance['binary'], cfg)
-        record['sandbox_command'] = args
-        command(args)
+        # docker/podman start a detached container; singularity has nothing to
+        # start (each exec binds a persistent host /work), so just make that dir.
+        start_argv = None if backend() == 'singularity' else \
+            sandbox_command(container, provenance['image_ref'], provenance['binary'], cfg)
+        if start_argv:
+            record['sandbox_command'] = start_argv
+            command(start_argv)
+        else:
+            workdir.mkdir(parents=True, exist_ok=True)
         # A second hash check detects replacement between preflight and mount.
-        inside_hash = command([container_runtime(), 'exec', container, 'sha256sum', '/target/jq']).split()[0]
+        inside_hash = command(sandbox_exec_argv(container, provenance['image_ref'], provenance['binary'],
+                                                str(workdir), 'sha256sum /target/jq', 30)).split()[0]
         if inside_hash != provenance['binary_sha256']:
             raise ValueError('Mounted binary changed after preflight')
+        write_json(out / 'sandbox.json', dict(backend=backend(), name=container,
+                   image=provenance['image_ref'], binary=provenance['binary'], workdir=str(workdir)))
         worker = [sys.executable, '-m', 'binary_eval.sdk_worker', str(out / 'config.json'),
                   str(out / 'prompts.json'), str(out), container]
         env = os.environ.copy()
@@ -186,10 +209,12 @@ def run_one(cfg, provenance, batch_id, configuration):
         record.update(status='interrupted', error='Interrupted by operator')
         raise
     finally:
-        try:
-            command([container_runtime(), 'rm', '-f', container])
-        except (OSError, subprocess.SubprocessError) as exc:
-            record['cleanup_error'] = str(exc)
+        stop_argv = sandbox_stop_argv(container)
+        if stop_argv:
+            try:
+                command(stop_argv)
+            except (OSError, subprocess.SubprocessError) as exc:
+                record['cleanup_error'] = str(exc)
         record['runtime_seconds'] = round(time.monotonic() - start, 3)
         finalize_record(record, out, truth)
         write_json(out / 'run.json', record)

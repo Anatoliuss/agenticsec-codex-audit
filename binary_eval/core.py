@@ -14,11 +14,18 @@ CONFIGURATIONS = ('zero_shot', 'cve_hinted')
 
 
 def container_runtime():
-    """Container CLI used for all sandboxing: 'docker' by default, or any
-    Docker-compatible CLI such as 'podman' (common on HPC where Docker is
-    unavailable). Override with the BINARY_EVAL_CONTAINER environment variable.
-    Apptainer/Singularity are not command-compatible and are not supported."""
+    """Container CLI used for all sandboxing: 'docker' by default. Override with
+    the BINARY_EVAL_CONTAINER environment variable:
+      - 'podman'                 Docker-compatible CLI (rootless Linux).
+      - 'singularity'/'apptainer' HPC runtime with a different command model
+                                  (no image build; see backend())."""
     return os.environ.get('BINARY_EVAL_CONTAINER', 'docker')
+
+
+def backend():
+    """'singularity' when the runtime is singularity/apptainer, else 'docker'
+    (which also covers podman, since it shares Docker's command line)."""
+    return 'singularity' if container_runtime() in ('singularity', 'apptainer') else 'docker'
 
 
 def read_json(path):
@@ -142,6 +149,28 @@ def sandbox_command(name, image_id, binary, cfg):
             '--tmpfs', f"/work:rw,nosuid,size={s['work_size']},uid=1000,gid=1000,mode=700",
             '--mount', f'type=bind,source={binary},target=/target/jq,readonly',
             '--workdir', '/work', '--env', 'HOME=/work', image_id, 'sleep', 'infinity']
+
+
+def sandbox_exec_argv(name, image_ref, binary, workdir, command, timeout):
+    """Argv to run ONE model-selected bash command inside the sandbox.
+
+    docker/podman: exec into the already-running container `name`.
+    singularity:   a fresh, network-isolated exec (`--net --network none`,
+                   `--containall`) that binds only a host /work directory (so
+                   files persist across commands) and the target binary
+                   read-only. No host shell, no source, no ground truth."""
+    guarded = ['timeout', '--signal=TERM', '--kill-after=2', str(timeout), 'bash', '-c', command]
+    if backend() == 'singularity':
+        binary = Path(binary).resolve()
+        return [container_runtime(), 'exec', '--containall', '--net', '--network', 'none',
+                '--pwd', '/work', '--bind', f'{Path(workdir).resolve()}:/work',
+                '--bind', f'{binary}:/target/jq:ro', str(image_ref), *guarded]
+    return [container_runtime(), 'exec', '-w', '/work', name, *guarded]
+
+
+def sandbox_stop_argv(name):
+    """Teardown command, or None when the backend has nothing persistent to stop."""
+    return None if backend() == 'singularity' else [container_runtime(), 'rm', '-f', name]
 
 
 def comparison_key(cfg, binary_hash, image_id, system_prompt):

@@ -66,6 +66,30 @@ class BinaryEvaluationTests(unittest.TestCase):
             self.assertIn('target=/target/jq,readonly', mounts[0])
             self.assertNotIn('/var/run/docker.sock', ' '.join(cmd))
 
+    def test_singularity_backend_isolates_network_and_binds_only_binary(self):
+        import os
+        from binary_eval.core import backend, sandbox_exec_argv, sandbox_stop_argv
+        prev = os.environ.get('BINARY_EVAL_CONTAINER')
+        os.environ['BINARY_EVAL_CONTAINER'] = 'singularity'
+        try:
+            self.assertEqual(backend(), 'singularity')
+            argv = sandbox_exec_argv('unused-name', '/a/tools.sif', '/a/jq', '/a/work',
+                                     'nm /target/jq', 90)
+            self.assertEqual(argv[0], 'singularity')
+            self.assertIn('--net', argv)
+            self.assertEqual(argv[argv.index('--network') + 1], 'none')  # no network
+            self.assertIn('--containall', argv)
+            binds = [argv[i + 1].replace(os.sep, '/') for i, v in enumerate(argv) if v == '--bind']
+            self.assertTrue(any(b.endswith('jq:/target/jq:ro') for b in binds))  # binary read-only
+            self.assertTrue(any(b.endswith(':/work') for b in binds))            # writable workdir
+            self.assertTrue(all('/target/jq:ro' in b or b.endswith(':/work') for b in binds))  # nothing else
+            self.assertEqual(argv[-3:], ['bash', '-c', 'nm /target/jq'])
+            self.assertIsNone(sandbox_stop_argv('unused-name'))  # nothing persistent to stop
+        finally:
+            os.environ.pop('BINARY_EVAL_CONTAINER', None)
+            if prev is not None:
+                os.environ['BINARY_EVAL_CONTAINER'] = prev
+
     def test_malformed_findings_are_not_accepted(self):
         self.assertEqual(parse_findings(json.dumps({'summary': 'none', 'findings': []}))['findings'], [])
         for obj in [[], {}, {'summary': 'x', 'findings': [{}]},
