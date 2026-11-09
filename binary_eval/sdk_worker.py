@@ -47,7 +47,7 @@ def create_agent(cfg, system_prompt, execute):
               api_key=SecretStr(os.environ.get(m['api_key_env'], 'local-no-key')),
               usage_id='binary-audit', temperature=s['temperature'], top_p=s['top_p'],
               seed=s['seed'], max_output_tokens=s['max_output_tokens'],
-              num_retries=0, timeout=min(120, cfg['limits']['time_budget_seconds']))
+              num_retries=1, timeout=min(600, cfg['limits']['time_budget_seconds']))
     agent = Agent(llm=llm, tools=[Tool(name='BinarySandboxShell')],
                   include_default_tools=['FinishTool', 'ThinkTool'],
                   system_prompt=system_prompt, mcp_config={}, condenser=None)

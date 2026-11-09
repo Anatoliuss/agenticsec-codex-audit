@@ -20,8 +20,10 @@ annotation row 4. These task identifiers have not been independently validated.
   It has no network, no capabilities, a read-only root and bounded writable tmpfs.
   The host controller can reach the model; the analysis container cannot.
 - The fixed tool image includes file, strings, readelf, objdump, nm, checksec,
-  gdb, Python and angr. Ghidra/radare2/Valgrind are not part of this selected tool
-  set. Dynamic analysis uses bounded commands; no PoC is bundled.
+  gdb, radare2, headless Ghidra (`ghidra-headless`), Valgrind, Python and angr —
+  the reverse-engineering tool set named in the evaluation task. Dynamic analysis
+  uses bounded commands; Valgrind is used only with a safe reproducible input and
+  no PoC is bundled.
 - Independent zero-shot and CVE-hinted conversations, using identical binary,
   tools, permissions, system prompt, sampling, time budget and iteration cap.
 - Raw events, persisted SDK trajectory, full command outputs, final findings,

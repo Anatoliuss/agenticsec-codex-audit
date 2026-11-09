@@ -5,7 +5,9 @@ Use /work for notes, scripts, and safe reproducible inputs. Each command starts
 in /work; filesystem changes persist, shell variables do not.
 
 Available analysis tools: file, strings, readelf, objdump, nm, checksec, gdb,
-Python and angr. Check the binary architecture and tool behavior before relying
+radare2 (r2/rabin2), headless Ghidra (run `ghidra-headless`), Python and angr.
+Valgrind is available; use it only with a safe, reproducible input you construct.
+Check the binary architecture and tool behavior before relying
 on them. Investigate suspected vulnerabilities without guessing source names.
 Use virtual addresses from this binary, disassembly/decompilation, data flow,
 and dynamic observations where available. Distinguish evidence from conjecture.

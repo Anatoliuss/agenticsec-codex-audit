@@ -20,11 +20,21 @@ The Docker/Podman path is unchanged; this file is only for the Singularity case.
 
 The image is then at `ghcr.io/anatoliuss/agenticsec-codex-audit-tools:latest`. (If your repo path differs, use that; set `BINARY_EVAL_TOOLS_IMAGE` to override.)
 
-## 1. Get a GPU node (one 80 GB card fits Qwen-32B)
+## 1. Get a GPU node (one 80 GB H100 fits Qwen3.6-35B-A3B-FP8)
+
+The evaluation model is **`Qwen/Qwen3.6-35B-A3B`** (MoE, 35B total / ~3B active,
+Apache-2.0) — the same model as the Mini-SWE-Agent run. Its bf16 weights are ~71 GB
+(borderline on one 80 GB card at 32k context), so serve the **FP8** variant
+`Qwen/Qwen3.6-35B-A3B-FP8` (~35 GB, native on Hopper). Request an H100:
 
 ```bash
-srun --partition=YOUR_GPU_PARTITION --gres=gpu:a100:1 --cpus-per-task=8 --mem=64G --time=04:00:00 --pty bash
+srun --partition=nvidia --gres=gpu:h100:1 --cpus-per-task=8 --mem=96G --time=04:00:00 --pty bash
 ```
+
+> **Match your friend's run.** Deliverable 4 compares the two agents under an
+> *identical* model id, revision and serving config. Confirm with whoever runs
+> Mini-SWE-Agent that you both use the same repo (FP8 vs bf16), the same resolved
+> revision, and the same thinking-mode setting before the scored run.
 
 ## 2. Environment + runtime + build tools
 
@@ -33,35 +43,68 @@ cd ~/agenticsec-codex-audit && git pull
 conda activate openhands
 export BINARY_EVAL_CONTAINER=singularity
 export HF_HOME=/scratch/$USER/hf-cache
+# Keep the multi-GB image caches off your (small) home quota, or pulls fail with "unexpected EOF":
+export SINGULARITY_CACHEDIR=/scratch/$USER/.singularity-cache
+export SINGULARITY_TMPDIR=/scratch/$USER/.singularity-tmp
+mkdir -p "$SINGULARITY_CACHEDIR" "$SINGULARITY_TMPDIR"
 module load gcc autoconf automake libtool bison flex git || true   # names vary; load what jq needs
 ```
 
 ## 3. Build the target (native jq + pull tools image)
 
 ```bash
+rm -rf artifacts/openhands-jq        # build refuses a non-empty output dir; skip on a first run
 python -m binary_eval.build
 ```
 
 This compiles jq at `f58787c` natively and pulls the tools image into
-`artifacts/openhands-jq/tools.sif`. If the native build fails, it's a missing
+`artifacts/openhands-jq/tools.sif`. Re-run it after the CI image rebuild so the
+new `.sif` (now with Ghidra/radare2/valgrind) matches `build.json`'s `tools_image_id`. If the native build fails, it's a missing
 build tool — `module avail` to find the right module names and re-`module load`.
 
 ## 4. Serve Qwen with vLLM (Singularity, in the background)
 
+`module purge` first: the build loaded a gcc module, and Singularity leaks host
+env (`GCC_EXEC_PREFIX`/`CPATH`) into the container, which breaks vLLM's in-container
+compiler (`fatal error: stddef.h: No such file`). Clearing modules fixes it; the
+jq build is already done, so you no longer need them.
+
+Qwen3 needs **two** parsers, unlike Qwen2.5-Coder: `--tool-call-parser hermes`
+for the function calls **and `--reasoning-parser qwen3`**, because Qwen3 emits
+`<think>` blocks by default and vLLM only parses tool calls from the content
+field, not from the reasoning. Omit the reasoning parser and tool-calling breaks.
+FP8 is auto-detected from the checkpoint (no `--quantization` flag).
+
 ```bash
-REVISION=$(python -c "from huggingface_hub import HfApi;print(HfApi().model_info('Qwen/Qwen2.5-Coder-32B-Instruct').sha)")
+module purge
+REVISION=$(python -c "from huggingface_hub import HfApi;print(HfApi().model_info('Qwen/Qwen3.6-35B-A3B-FP8').sha)")
 echo "revision=$REVISION"
 singularity run --nv docker://vllm/vllm-openai:latest \
-  --model Qwen/Qwen2.5-Coder-32B-Instruct --revision $REVISION \
-  --served-model-name Qwen/Qwen2.5-Coder-32B-Instruct \
-  --enable-auto-tool-choice --tool-call-parser hermes --max-model-len 32768 &
+  --model Qwen/Qwen3.6-35B-A3B-FP8 --revision $REVISION \
+  --served-model-name Qwen/Qwen3.6-35B-A3B-FP8 \
+  --enable-auto-tool-choice --tool-call-parser hermes --reasoning-parser qwen3 \
+  --max-model-len 32768 --enforce-eager \
+  > vllm.log 2>&1 &
 ```
 
-Wait for it to load, then confirm:
+Watch startup, waiting for `Uvicorn running on http://0.0.0.0:8000`:
+
+```bash
+tail -f vllm.log
+```
+
+Then confirm the model is up **and that tool-calling actually parses** (Ctrl-C the
+tail first). The second curl must return a populated `tool_calls` array:
 
 ```bash
 curl http://127.0.0.1:8000/v1/models
+curl -s http://127.0.0.1:8000/v1/chat/completions -H "Content-Type: application/json" -d '{"model":"Qwen/Qwen3.6-35B-A3B-FP8","messages":[{"role":"user","content":"List the files in /work using the shell tool."}],"tools":[{"type":"function","function":{"name":"run_shell","description":"Run a bash command","parameters":{"type":"object","properties":{"command":{"type":"string"}},"required":["command"]}}}],"tool_choice":"auto","temperature":0}' | python -m json.tool
 ```
+
+> **bf16 instead of FP8:** if your friend's Mini-SWE run uses full precision, serve
+> `--model Qwen/Qwen3.6-35B-A3B` (its own revision, drop nothing else) and add
+> `--max-model-len 16384 --gpu-memory-utilization 0.95` so the ~71 GB weights fit
+> the 80 GB card. Both agents must use the *same* variant for the comparison.
 
 ## 5. Fill the config (Qwen + the .sif sandbox image)
 
@@ -80,10 +123,11 @@ echo "serving image = $IMAGE_DIGEST"
 python - <<PY
 import json
 f="openhands/config.local.json"; c=json.load(open(f))
-c["model"].update(id="Qwen/Qwen2.5-Coder-32B-Instruct", revision="$REVISION",
+c["model"].update(id="Qwen/Qwen3.6-35B-A3B-FP8", revision="$REVISION",
                   license="Apache-2.0", base_url="http://127.0.0.1:8000/v1")
 c["serving"].update(engine="vllm", image="$IMAGE_DIGEST",
-    command="--model Qwen/Qwen2.5-Coder-32B-Instruct --revision $REVISION --enable-auto-tool-choice --tool-call-parser hermes --max-model-len 32768".split())
+    notes="Qwen3.6-35B-A3B MoE (35B total / ~3B active), FP8 on one 80GB H100, dtype auto, TP=1, 32k ctx, --tool-call-parser hermes + --reasoning-parser qwen3",
+    command="--model Qwen/Qwen3.6-35B-A3B-FP8 --revision $REVISION --enable-auto-tool-choice --tool-call-parser hermes --reasoning-parser qwen3 --max-model-len 32768 --enforce-eager".split())
 c["sandbox"]["image"]="artifacts/openhands-jq/tools.sif"   # the pulled .sif
 json.dump(c, open(f,"w"), indent=2); print("patched config.local.json")
 PY
@@ -109,8 +153,17 @@ cat results/openhands/reports/comparison.md
 
 - **`module load` names** differ per cluster. If `python -m binary_eval.build` fails
   on `autoreconf`/`bison`/`flex`/`gcc`, find the modules with `module avail` and load them.
-- **`--tool-call-parser hermes`** is correct for Qwen2.5-Coder. If `tools.jsonl` is
-  empty, the model never called the sandbox tool — check the vLLM log.
+- **Tool-calling (Qwen3):** serve with `--tool-call-parser hermes` **and**
+  `--reasoning-parser qwen3`. If `tools.jsonl` is empty, the model never called the
+  sandbox tool — first confirm the tool-call curl in Step 4 returns a populated
+  `tool_calls` array; if it doesn't, the reasoning parser is almost always missing.
+- **Thinking mode** is on by default for Qwen3 and eats the token/time budget. If
+  runs stall or repeat under greedy sampling (temp 0), coordinate with the Mini-SWE
+  side on disabling it (`enable_thinking=False`) or raising temperature, and keep
+  both agents identical.
+- **Tools image is larger now** (headless Ghidra + JDK ≈ 0.5 GB on top of radare2/
+  valgrind/angr); the first `singularity pull` of `tools.sif` takes longer. The
+  build downloads a pinned Ghidra 11.0.3 release and verifies its sha256.
 - **Ground truth:** runs work without it; you still need row 4 to score a confirmed
   hit. Fill `openhands/ground_truth.json`, then re-run `report` (it re-scores saved runs).
 - **Singularity version** here is 3.6.4; if `--net` is rejected at run time, tell me and
