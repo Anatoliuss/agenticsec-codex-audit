@@ -12,6 +12,10 @@ from pathlib import Path
 
 from .core import backend, read_json, sandbox_exec_argv, write_json
 
+# Context copy of each tool output; the full output is always saved to disk as the
+# evidence reference, so this only bounds what re-enters the model's context window.
+MAX_TOOL_OUTPUT_CHARS = 6000
+
 
 def create_agent(cfg, system_prompt, execute):
     """Construct without making a model call; execute is the Docker-only boundary."""
@@ -41,6 +45,8 @@ def create_agent(cfg, system_prompt, execute):
                         action_type=ShellAction, observation_type=ShellObservation,
                         executor=ShellExecutor())]
 
+    from openhands.sdk.context.condenser import LLMSummarizingCondenser
+
     register_tool('BinarySandboxShell', SandboxShellTool)
     m, s = cfg['model'], cfg['sampling']
     llm = LLM(model='openai/' + m['id'], base_url=m['base_url'],
@@ -48,9 +54,15 @@ def create_agent(cfg, system_prompt, execute):
               usage_id='binary-audit', temperature=s['temperature'], top_p=s['top_p'],
               seed=s['seed'], max_output_tokens=s['max_output_tokens'],
               num_retries=1, timeout=min(600, cfg['limits']['time_budget_seconds']))
+    # Long tool-driven analyses would otherwise overflow the model context window and
+    # crash the run. Summarize older history past a bounded event count; always keep
+    # the system prompt and task. The summarizer reuses the same pinned endpoint.
+    condenser = LLMSummarizingCondenser(
+        llm=llm.model_copy(update={'usage_id': 'condenser'}),
+        max_size=cfg['limits'].get('condenser_max_size', 10), keep_first=2)
     agent = Agent(llm=llm, tools=[Tool(name='BinarySandboxShell')],
                   include_default_tools=['FinishTool', 'ThinkTool'],
-                  system_prompt=system_prompt, mcp_config={}, condenser=None)
+                  system_prompt=system_prompt, mcp_config={}, condenser=condenser)
     return agent, llm
 
 
@@ -81,10 +93,12 @@ class DockerShell:
                                          runtime_seconds=time.monotonic() - started)) + '\n')
         # Preserve full output on disk, bound context growth separately.
         with path.open(encoding='utf-8', errors='replace') as stream:
-            text = stream.read(32001)
-        truncated = len(text) > 32000
-        return f'Evidence reference: {ref}; exit code: {code}\n' + text[:32000] + (
-            '\n[Output truncated for context; use narrower commands.]' if truncated else '')
+            text = stream.read(MAX_TOOL_OUTPUT_CHARS + 1)
+        truncated = len(text) > MAX_TOOL_OUTPUT_CHARS
+        return f'Evidence reference: {ref}; exit code: {code}\n' + text[:MAX_TOOL_OUTPUT_CHARS] + (
+            '\n[Output truncated for context; the full output is saved as the evidence '
+            'reference above. Re-run a narrower command to inspect a specific part.]'
+            if truncated else '')
 
 
 def main(config_path, prompts_path, output_path, container):
