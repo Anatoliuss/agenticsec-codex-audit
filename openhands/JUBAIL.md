@@ -53,13 +53,16 @@ module load gcc autoconf automake libtool bison flex git || true   # names vary;
 ## 3. Build the target (native jq + pull tools image)
 
 ```bash
+module load gcc autoconf automake libtool bison flex git || true  # re-load if you ran `module purge` to serve
 rm -rf artifacts/openhands-jq        # build refuses a non-empty output dir; skip on a first run
 python -m binary_eval.build
 ```
 
 This compiles jq at `f58787c` natively and pulls the tools image into
 `artifacts/openhands-jq/tools.sif`. Re-run it after the CI image rebuild so the
-new `.sif` (now with Ghidra/radare2/valgrind) matches `build.json`'s `tools_image_id`. If the native build fails, it's a missing
+new `.sif` (now with Ghidra/radare2/valgrind) matches `build.json`'s `tools_image_id`.
+The native jq build needs the gcc modules; if you already ran Step 4's `module
+purge` to serve vLLM, re-load them first (the running server is unaffected). If the native build fails, it's a missing
 build tool — `module avail` to find the right module names and re-`module load`.
 
 ## 4. Serve Qwen with vLLM (Singularity, in the background)
@@ -69,11 +72,13 @@ env (`GCC_EXEC_PREFIX`/`CPATH`) into the container, which breaks vLLM's in-conta
 compiler (`fatal error: stddef.h: No such file`). Clearing modules fixes it; the
 jq build is already done, so you no longer need them.
 
-Qwen3 needs **two** parsers, unlike Qwen2.5-Coder: `--tool-call-parser hermes`
-for the function calls **and `--reasoning-parser qwen3`**, because Qwen3 emits
-`<think>` blocks by default and vLLM only parses tool calls from the content
-field, not from the reasoning. Omit the reasoning parser and tool-calling breaks.
-FP8 is auto-detected from the checkpoint (no `--quantization` flag).
+Qwen3.6 needs **two** parsers, unlike Qwen2.5-Coder. It writes tool calls as XML
+(`<function=name><parameter=key>value</parameter></function>`), so the tool-call
+parser must be **`qwen3_coder`** — `hermes` (which expects JSON) cannot read that
+format and silently leaves the call as plain text with no `tool_calls` array. It
+also emits `<think>` reasoning by default, so add **`--reasoning-parser qwen3`** to
+split that out. FP8 is auto-detected from the checkpoint (no `--quantization` flag).
+(If your vLLM build rejects `qwen3_coder`, the equivalent name is `qwen3_xml`.)
 
 ```bash
 module purge
@@ -82,7 +87,7 @@ echo "revision=$REVISION"
 singularity run --nv docker://vllm/vllm-openai:latest \
   --model Qwen/Qwen3.6-35B-A3B-FP8 --revision $REVISION \
   --served-model-name Qwen/Qwen3.6-35B-A3B-FP8 \
-  --enable-auto-tool-choice --tool-call-parser hermes --reasoning-parser qwen3 \
+  --enable-auto-tool-choice --tool-call-parser qwen3_coder --reasoning-parser qwen3 \
   --max-model-len 32768 --enforce-eager \
   > vllm.log 2>&1 &
 ```
@@ -126,8 +131,8 @@ f="openhands/config.local.json"; c=json.load(open(f))
 c["model"].update(id="Qwen/Qwen3.6-35B-A3B-FP8", revision="$REVISION",
                   license="Apache-2.0", base_url="http://127.0.0.1:8000/v1")
 c["serving"].update(engine="vllm", image="$IMAGE_DIGEST",
-    notes="Qwen3.6-35B-A3B MoE (35B total / ~3B active), FP8 on one 80GB H100, dtype auto, TP=1, 32k ctx, --tool-call-parser hermes + --reasoning-parser qwen3",
-    command="--model Qwen/Qwen3.6-35B-A3B-FP8 --revision $REVISION --enable-auto-tool-choice --tool-call-parser hermes --reasoning-parser qwen3 --max-model-len 32768 --enforce-eager".split())
+    notes="Qwen3.6-35B-A3B MoE (35B total / ~3B active), FP8 on one 80GB H100, dtype auto, TP=1, 32k ctx, --tool-call-parser qwen3_coder + --reasoning-parser qwen3",
+    command="--model Qwen/Qwen3.6-35B-A3B-FP8 --revision $REVISION --enable-auto-tool-choice --tool-call-parser qwen3_coder --reasoning-parser qwen3 --max-model-len 32768 --enforce-eager".split())
 c["sandbox"]["image"]="artifacts/openhands-jq/tools.sif"   # the pulled .sif
 json.dump(c, open(f,"w"), indent=2); print("patched config.local.json")
 PY
@@ -153,10 +158,12 @@ cat results/openhands/reports/comparison.md
 
 - **`module load` names** differ per cluster. If `python -m binary_eval.build` fails
   on `autoreconf`/`bison`/`flex`/`gcc`, find the modules with `module avail` and load them.
-- **Tool-calling (Qwen3):** serve with `--tool-call-parser hermes` **and**
+- **Tool-calling (Qwen3.6):** serve with `--tool-call-parser qwen3_coder` **and**
   `--reasoning-parser qwen3`. If `tools.jsonl` is empty, the model never called the
-  sandbox tool — first confirm the tool-call curl in Step 4 returns a populated
-  `tool_calls` array; if it doesn't, the reasoning parser is almost always missing.
+  sandbox tool — confirm the tool-call curl in Step 4 returns a populated
+  `tool_calls` array with `finish_reason: "tool_calls"`. If the call instead shows
+  up as raw `<function=...>` text in `content`, the tool-call parser is wrong
+  (`hermes` cannot read Qwen3.6's XML — use `qwen3_coder`).
 - **Thinking mode** is on by default for Qwen3 and eats the token/time budget. If
   runs stall or repeat under greedy sampling (temp 0), coordinate with the Mini-SWE
   side on disabling it (`enable_thinking=False`) or raising temperature, and keep

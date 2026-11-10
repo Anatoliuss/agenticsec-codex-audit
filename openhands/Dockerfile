@@ -12,10 +12,18 @@ FROM scratch AS binary
 COPY --from=builder /export/ /
 
 FROM ${BASE} AS tools
+# Keep apt lists until after the radare2 .deb is installed (apt resolves its deps).
 RUN apt-get update && apt-get install -y --no-install-recommends \
     file binutils checksec gdb valgrind python3 python3-venv libonig5 coreutils \
-    procps bash ca-certificates radare2 openjdk-17-jdk-headless unzip wget \
-    && rm -rf /var/lib/apt/lists/*
+    procps bash ca-certificates openjdk-17-jdk-headless unzip wget
+# radare2 is no longer packaged in Debian bookworm; install the upstream amd64
+# .deb (pinned release + verified hash). apt pulls in its runtime dependencies.
+ARG RADARE2_VERSION=6.2.6
+ARG RADARE2_SHA256=0dddf90e217e38a6a658881b9ec7e217198487c75b7f82a332b3cbd30834636f
+RUN wget -q "https://github.com/radareorg/radare2/releases/download/${RADARE2_VERSION}/radare2_${RADARE2_VERSION}_amd64.deb" -O /tmp/r2.deb && \
+    echo "${RADARE2_SHA256}  /tmp/r2.deb" | sha256sum -c - && \
+    apt-get install -y --no-install-recommends /tmp/r2.deb && \
+    rm /tmp/r2.deb && rm -rf /var/lib/apt/lists/*
 # Headless Ghidra (pinned release + verified hash). 11.0.3 is the last 11.x line
 # that runs on JDK 17 (11.1+ require JDK 21, absent from Debian bookworm main).
 ARG GHIDRA_VERSION=11.0.3
