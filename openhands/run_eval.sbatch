@@ -24,7 +24,13 @@ export SINGULARITY_CACHEDIR=/scratch/$USER/.singularity-cache
 export SINGULARITY_TMPDIR=/scratch/$USER/.singularity-tmp
 export OPENHANDS_LLM_API_KEY=local-dummy
 mkdir -p "$HF_HOME" "$SINGULARITY_CACHEDIR" "$SINGULARITY_TMPDIR"
-module purge 2>/dev/null || true   # clearing modules keeps the vLLM container compiler clean
+
+# --- build the target binary at the configured commit (jq native + pull tools image) ---
+# Needs the compiler modules; done before serving so the vulnerable binary exists.
+module load gcc autoconf automake libtool bison flex git 2>/dev/null || true
+rm -rf artifacts/openhands-jq
+python -m binary_eval.build || { echo "build failed; see log above"; exit 1; }
+module purge 2>/dev/null || true   # clear modules so the vLLM container compiler stays clean
 
 # --- read model id/revision FROM the config so the server matches it exactly ---
 MODEL_ID=$(python -c "import json;print(json.load(open('$CONFIG'))['model']['id'])")

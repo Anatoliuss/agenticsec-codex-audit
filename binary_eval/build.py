@@ -17,7 +17,10 @@ from pathlib import Path
 from .core import ASSETS, backend, container_runtime, read_json, resolve, sha256, write_json
 
 JQ_REPO = 'https://github.com/jqlang/jq'
-JQ_COMMIT = 'f58787c'
+# Vulnerable commit for CVE-2026-44777 (per the ground-truth annotation). f58787c
+# is the FIX ("Detect circular module imports..."), so building f58787c yields a
+# patched binary with no bug to find; 9d223f15 still contains the recursion.
+JQ_COMMIT = '9d223f153c3632a207fa071caaa6292da33ae361'
 DEFAULT_TOOLS_IMAGE = os.environ.get(
     'BINARY_EVAL_TOOLS_IMAGE', 'ghcr.io/anatoliuss/agenticsec-codex-audit-tools:latest')
 

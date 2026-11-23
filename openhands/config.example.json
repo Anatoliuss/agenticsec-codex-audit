@@ -3,7 +3,7 @@
   "target": {
     "project": "jq",
     "repository": "https://github.com/jqlang/jq",
-    "commit": "f58787c",
+    "commit": "9d223f153c3632a207fa071caaa6292da33ae361",
     "cve": "CVE-2026-44777",
     "cwe": "CWE-674",
     "annotation_row": 4,

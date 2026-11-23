@@ -85,8 +85,9 @@ def validate_config(cfg):
     if type(sampling['seed']) is not int or type(sampling['max_output_tokens']) is not int or sampling['max_output_tokens'] <= 0:
         raise ValueError('Set integer sampling seed and positive max_output_tokens')
     target = cfg['target']
-    if (target['project'], target['commit'], target['cve']) != ('jq', 'f58787c', 'CVE-2026-44777'):
-        raise ValueError('This workflow is for the fixed jq/f58787c/CVE-2026-44777 task')
+    if (target['project'], target['commit'], target['cve']) != (
+            'jq', '9d223f153c3632a207fa071caaa6292da33ae361', 'CVE-2026-44777'):
+        raise ValueError('This workflow is for the vulnerable jq/9d223f15/CVE-2026-44777 task')
 
 
 def build_prompts(cfg, configuration):

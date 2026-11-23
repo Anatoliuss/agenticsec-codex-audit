@@ -34,8 +34,8 @@ def validate_artifacts(cfg):
         raise ValueError('Binary hash differs from build manifest')
     revision = manifest.get('resolved_commit', '')
     import re
-    if not re.fullmatch(r'f58787c[0-9a-f]{33}', revision):
-        raise ValueError('Build manifest must resolve f58787c to its full commit')
+    if not re.fullmatch(r'9d223f1[0-9a-f]{33}', revision):
+        raise ValueError('Build manifest must resolve the vulnerable commit 9d223f15 to its full commit')
     if manifest.get('repository') != cfg['target']['repository']:
         raise ValueError('Build repository differs from configured target')
     return binary, manifest, digest
