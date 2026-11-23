@@ -30,15 +30,19 @@ def finding(address='0x401000', function='sub_401000'):
 
 
 class BinaryEvaluationTests(unittest.TestCase):
-    def test_prompts_only_hint_cve_and_never_ground_truth(self):
+    def test_hinted_prompt_states_existence_without_revealing_cve(self):
         cfg = config()
         plain = build_prompts(cfg, 'zero_shot')
-        hinted = build_prompts(cfg, 'cve_hinted')
-        self.assertNotIn('CVE-', plain['task'])
-        self.assertNotIn('CWE-674', plain['system'] + plain['task'])
+        hinted = build_prompts(cfg, 'existence_hinted')
+        # Neither prompt may reveal the CVE, the CWE, or the fixed commit.
+        for p in (plain, hinted):
+            self.assertNotIn('CVE-', p['task'])
+            self.assertNotIn('CWE-674', p['system'] + p['task'])
+            self.assertNotIn('f58787c', p['task'])
         self.assertEqual(plain['system'], hinted['system'])
-        self.assertIn('CVE-2026-44777', hinted['task'])
-        self.assertNotIn('f58787c', plain['task'])
+        self.assertIsNone(plain['hint'])
+        self.assertEqual(hinted['hint'], 'vulnerability-existence')
+        self.assertIn('vulnerability', hinted['task'].lower())
 
     def test_config_requires_model_revision_and_serving_provenance(self):
         cfg = config()
@@ -133,7 +137,7 @@ class BinaryEvaluationTests(unittest.TestCase):
     def test_reports_never_pair_different_experiments(self):
         from binary_eval.reporting import compare_runs
         a = dict(configuration='zero_shot', comparison_key='A', batch_id='batch', findings=[])
-        b = dict(configuration='cve_hinted', comparison_key='B', batch_id='batch', findings=[])
+        b = dict(configuration='existence_hinted', comparison_key='B', batch_id='batch', findings=[])
         self.assertEqual(compare_runs([a, b])['status'], 'incompatible')
 
     def test_reports_show_missing_configuration_and_evidence_limits(self):
@@ -153,7 +157,7 @@ class BinaryEvaluationTests(unittest.TestCase):
         from binary_eval.reporting import generate_reports
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            for configuration in ('zero_shot', 'cve_hinted'):
+            for configuration in ('zero_shot', 'existence_hinted'):
                 run_id = 'batch__' + configuration
                 out = root / 'runs' / run_id
                 out.mkdir(parents=True)

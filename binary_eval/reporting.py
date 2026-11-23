@@ -16,15 +16,15 @@ def compare_runs(runs):
     configurations = [r['configuration'] for r in runs]
     if len(set(r['comparison_key'] for r in runs)) > 1 or len(set(r['batch_id'] for r in runs)) > 1:
         return dict(status='incompatible', reason='Binary/model/tools/settings or batch differ')
-    if sorted(configurations) != ['cve_hinted', 'zero_shot']:
+    if sorted(configurations) != ['existence_hinted', 'zero_shot']:
         return dict(status='incomplete', reason='Need exactly one run for each configuration in the batch')
     if any(r.get('status') != 'ok' for r in runs):
         return dict(status='execution_failure', reason='At least one configuration did not yield valid findings')
     by_config = {r['configuration']: r for r in runs}
     a = {location(f) for f in by_config['zero_shot']['findings']} - {''}
-    b = {location(f) for f in by_config['cve_hinted']['findings']} - {''}
+    b = {location(f) for f in by_config['existence_hinted']['findings']} - {''}
     return dict(status='comparable', overlap=sorted(a & b), zero_shot_only=sorted(a - b),
-                cve_hinted_only=sorted(b - a),
+                existence_hinted_only=sorted(b - a),
                 method='Same reported virtual address, otherwise normalized function name; not semantic equivalence')
 
 
@@ -108,7 +108,7 @@ def generate_reports(results_dir, truth=None):
     for batch, comparison in comparisons.items():
         lines += [f"### {batch}", '', f"Pair status: **{comparison['status']}**.", '']
         if comparison['status'] == 'comparable':
-            for key in ('overlap', 'zero_shot_only', 'cve_hinted_only'):
+            for key in ('overlap', 'zero_shot_only', 'existence_hinted_only'):
                 lines += [f"- {key}: {', '.join(comparison[key]) or 'none'}"]
             lines += ['', comparison['method'] + '.', '']
         else:

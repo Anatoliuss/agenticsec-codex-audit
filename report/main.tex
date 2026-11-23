@@ -1,0 +1,197 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{seqsplit}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+
+\definecolor{codebg}{HTML}{F4F6F8}
+\definecolor{codeln}{HTML}{5B6B7B}
+\definecolor{accent}{HTML}{0E7C7B}
+
+\lstdefinestyle{sh}{
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{codebg},
+  frame=single, rulecolor=\color{codeln!40},
+  breaklines=true, breakatwhitespace=true,
+  columns=fullflexible, keepspaces=true,
+  xleftmargin=6pt, xrightmargin=6pt, aboveskip=8pt, belowskip=8pt,
+  showstringspaces=false
+}
+\lstset{style=sh}
+
+\newcommand{\repo}{\href{https://github.com/Anatoliuss/agenticsec-codex-audit}{github.com/Anatoliuss/agenticsec-codex-audit}}
+
+\title{\vspace{-1.5em}\textbf{Reproducible Agentic Binary Vulnerability Analysis}\\[0.3em]
+\large OpenHands on \texttt{jq} (CVE-2026-44777): data-collection pipeline and exploratory results}
+\author{Prepared by [Your name]\\[-0.2em]\small Shared evaluation project with the Mini-SWE-Agent study}
+\date{10 November 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent This document records the step-by-step data-collection pipeline and the
+exploratory results for an agentic binary-analysis evaluation. An OpenHands agent,
+driven by a self-hosted open-weight coding model (Qwen3.6-35B-A3B, served through
+vLLM), is asked to analyse a stripped build of \texttt{jq} and identify a known
+vulnerability (CVE-2026-44777, CWE-674, uncontrolled recursion) under two prompting
+conditions---\emph{zero-shot} and \emph{CVE-hinted}---holding the model, tools, sandbox,
+budget, and system prompt constant. The pipeline, provenance, and reproducibility
+procedure are designed to be shared with a parallel Mini-SWE-Agent evaluation on the
+same target so the two frameworks can be compared under identical conditions.
+Sections~\ref{sec:minimswe} and~\ref{sec:cross} are placeholders for the Mini-SWE-Agent
+results and the cross-agent comparison.
+\end{abstract}
+
+\section{Overview and scope}
+The research question is whether a self-hosted, open-weight agent can locate a known
+vulnerability in a \emph{stripped} binary with no access to source code or ground truth.
+The evaluation isolates the effect of a CVE hint by running two otherwise-identical
+conversations: a zero-shot run that receives no vulnerability-specific information, and a
+CVE-hinted run that receives only the CVE identifier (the vulnerable-function name is never
+revealed). The agent analyses the binary inside a network-isolated sandbox using a fixed
+reverse-engineering tool set. All configuration, prompts, and reporting code are published
+at \repo.
+
+\section{Experimental configuration}
+\begin{table}[h]
+\centering\footnotesize
+\begin{tabularx}{\textwidth}{@{}l >{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Component} & \textbf{Value} \\
+\midrule
+Agent framework      & OpenHands Software Agent SDK 1.59.0 (MIT) \\
+Model                & Qwen/Qwen3.6-35B-A3B-FP8 (MoE, 35B total / ${\sim}$3B active), Apache-2.0 \\
+Serving              & vLLM, FP8 on one 80\,GB H100; tool-call parser \texttt{qwen3\_coder}; reasoning parser \texttt{qwen3} \\
+Target               & \texttt{jq} at commit \texttt{\seqsplit{f58787c41835d9b17795730cb04925fdba25c71c}} (stripped, non-PIE) \\
+Binary SHA-256       & \texttt{\seqsplit{f82e1c6b62d4e7d71a4b9a0ed96ff882f23fd8a62e68308694730cf7001196ac}} \\
+Tools image SHA-256  & \texttt{\seqsplit{81f9fd6cce59161d539156cd570d19ef897346496d18bf34f8e862c7f39b5099}} \\
+Tool set             & file, strings, objdump, nm, checksec, gdb, radare2 6.2.6, headless Ghidra 11.0.3, angr 9.2.180, valgrind \\
+Sandbox              & Singularity \texttt{exec -{}-net -{}-network none}; binary mounted read-only at \texttt{/target/jq} \\
+Sampling             & temperature 0.0, top-p 1.0, seed 42, max output 4096 tokens \\
+Budget               & 1800\,s wall-clock and 60 iterations per run; 90\,s per command \\
+Context management   & \texttt{LLMSummarizingCondenser} (max\_size 10, keep\_first 2); per-command context capped at 6000 chars \\
+\bottomrule
+\end{tabularx}
+\caption{Pinned evaluation configuration. The serving model revision and license are
+operator-supplied provenance; the model endpoint confirms the served identifier only.}
+\end{table}
+
+\section{Data-collection pipeline}
+The pipeline runs on an HPC cluster that provides Singularity only (no Docker and no
+\texttt{fakeroot}). The analysis tools image is therefore built once by continuous
+integration and pulled, and the target binary is compiled natively on a node.
+
+\paragraph{Step 1 --- Build the target and pull the tools image.}
+Compiles \texttt{jq} at the vulnerable commit and pulls the CI-built tools image into a
+Singularity image file, recording the binary hash, resolved commit, compiler, flags, and
+tool versions.
+\begin{lstlisting}[language=bash]
+module load gcc autoconf automake libtool bison flex git || true
+rm -rf artifacts/openhands-jq
+python -m binary_eval.build
+\end{lstlisting}
+
+\paragraph{Step 2 --- Serve the model with vLLM.}
+Qwen3.6 emits tool calls in an XML form (nested \texttt{function} and \texttt{parameter}
+tags) rather than JSON, so the \texttt{qwen3\_coder} tool-call parser is required; the
+\texttt{qwen3} reasoning parser separates the model's reasoning output so the tool calls
+are parsed from the content field.
+\begin{lstlisting}[language=bash]
+module purge
+REVISION=$(python -c "from huggingface_hub import HfApi;print(HfApi().model_info('Qwen/Qwen3.6-35B-A3B-FP8').sha)")
+singularity run --nv docker://vllm/vllm-openai:latest \
+  --model Qwen/Qwen3.6-35B-A3B-FP8 --revision $REVISION \
+  --served-model-name Qwen/Qwen3.6-35B-A3B-FP8 \
+  --enable-auto-tool-choice --tool-call-parser qwen3_coder \
+  --reasoning-parser qwen3 --max-model-len 32768 --enforce-eager
+\end{lstlisting}
+
+\paragraph{Step 3 --- Configure, preflight, run, report.}
+\texttt{preflight} validates settings, re-hashes the binary and image against the build
+manifest, and confirms the served model identifier. \texttt{run} executes the two
+independent conversations; \texttt{report} regenerates the JSON and Markdown comparison.
+\begin{lstlisting}[language=bash]
+python -m binary_eval preflight --config openhands/config.local.json
+python -m binary_eval run      --config openhands/config.local.json
+python -m binary_eval report   --config openhands/config.local.json
+\end{lstlisting}
+
+\section{Isolation and provenance guarantees}
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+  \item The analysis container has no network, a read-only root, and only the stripped
+        binary mounted read-only. No source tree, unstripped copy, symbol map, ground
+        truth, or previous results enter the sandbox.
+  \item The host controller can reach the model endpoint; the analysis container cannot.
+  \item Each run records its binary hash, resolved commit, tool-image hash, tool versions,
+        model identifier, serving command, and network-isolation mode.
+  \item Model-selected commands execute only through a single sandbox-exec boundary; full
+        command output is saved to disk as cited evidence, and only a bounded slice re-enters
+        the model context.
+\end{itemize}
+
+\section{Results}\label{sec:results}
+Both configurations ran the full wall-clock budget. The agent performed extensive static
+and dynamic analysis (tens of real tool commands against the binary) but did not emit a
+final structured finding within the 1800\,s budget, so no vulnerable function was localised
+and the known-function status is \texttt{not\_evaluated} for both runs (the ground-truth
+annotation was also not yet filled, so localisation would be reported as unverified in any
+case).
+
+\begin{table}[h]
+\centering\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Configuration} & \textbf{Status} & \textbf{Commands} & \textbf{Input tok.} & \textbf{Output tok.} \\
+\midrule
+Zero-shot   & timeout & 46 & 48{,}793 & 5{,}101 \\
+CVE-hinted  & timeout & 32 & 46{,}485 & 4{,}367 \\
+\bottomrule
+\end{tabular}
+\caption{Exploratory results (batch \texttt{20261110T073522Z-96c3a0c7}). Each run was capped
+at 1800\,s.}
+\end{table}
+
+\paragraph{Observation.} The CVE hint measurably focused the agent's search: the CVE-hinted
+run issued fewer commands (32 vs.\ 46) and used fewer tokens than the zero-shot run,
+consistent with a more targeted exploration. Neither run converged to a structured finding
+within budget; the binding constraint was wall-clock time, as eager-mode inference with
+reasoning and periodic history condensation averaged roughly 39\,s per step.
+
+\section{Limitations}
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+  \item Single target and single model; results characterise behaviour, not population-level
+        precision or recall.
+  \item Both runs timed out without converging, so no vulnerability findings were produced.
+  \item Ground-truth row 4 was not verified, so function localisation is unscored; failures
+        and timeouts are never scored as misses.
+  \item Identical sampling settings do not guarantee deterministic inference.
+  \item Any findings a converged run produces would be candidate localisations requiring
+        manual validation, not confirmed vulnerabilities.
+\end{itemize}
+
+\section{Mini-SWE-Agent evaluation}\label{sec:minimswe}
+\emph{Placeholder --- to be completed by the collaborator running the Mini-SWE-Agent study.}
+This section should report the Mini-SWE-Agent run on the same \texttt{jq} build and commit,
+using the same model revision, tool set, and time budget: its status, tool commands, token
+usage, runtime, raw findings, and whether it localised the known vulnerable function.
+
+\section{Cross-agent comparison}\label{sec:cross}
+\emph{Placeholder --- to be completed once both agents have results.} This section should
+compare OpenHands and Mini-SWE-Agent on findings overlap, evidence quality, runtime, token
+usage, and whether either framework identified the known vulnerable function, under the
+identical model, revision, tool set, and budget documented above.
+
+\section*{Artifacts}
+All prompts, configuration, reporting code, and per-run JSON/Markdown outputs are published
+at \repo. Per-run artifacts include run provenance (\texttt{run.json}), the complete event
+stream (\texttt{events.jsonl}), the command log (\texttt{tools.jsonl}), full command outputs,
+metrics, and the aggregate comparison (\texttt{comparison.json}, \texttt{comparison.md}).
+
+\end{document}

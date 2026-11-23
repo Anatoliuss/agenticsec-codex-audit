@@ -32,6 +32,6 @@
     "work_size": "2g"
   },
   "sampling": {"temperature": 0.0, "top_p": 1.0, "seed": 42, "max_output_tokens": 4096},
-  "limits": {"time_budget_seconds": 1800, "max_iterations": 60, "command_timeout_seconds": 90},
+  "limits": {"time_budget_seconds": 14400, "max_iterations": 120, "command_timeout_seconds": 300},
   "results_dir": "results/openhands"
 }

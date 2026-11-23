@@ -10,7 +10,7 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / 'openhands'
-CONFIGURATIONS = ('zero_shot', 'cve_hinted')
+CONFIGURATIONS = ('zero_shot', 'existence_hinted')
 
 
 def container_runtime():
@@ -94,12 +94,14 @@ def build_prompts(cfg, configuration):
         raise ValueError('Unknown prompting configuration')
     system = (ASSETS / 'prompts/system.md').read_text(encoding='utf-8')
     task = (ASSETS / f'prompts/{configuration}.md').read_text(encoding='utf-8')
-    task = task.replace('{{cve}}', cfg['target']['cve'])
     budget = cfg['limits']
     task += f"\nBudget: {budget['time_budget_seconds']} seconds; at most {budget['max_iterations']} iterations.\n"
     task += '\nOutput schema:\n' + json.dumps(read_json(ASSETS / 'prompts/findings.schema.json'))
+    # The hinted run is told ONLY that a vulnerability exists; the CVE, CWE and
+    # vulnerable-function name are never placed in any prompt, to keep the
+    # comparison honest (the task forbids revealing them).
     return dict(system=system, task=task,
-                hint=cfg['target']['cve'] if configuration == 'cve_hinted' else None)
+                hint='vulnerability-existence' if configuration == 'existence_hinted' else None)
 
 
 def parse_findings(raw):

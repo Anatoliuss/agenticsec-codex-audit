@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "note": "Required fields per Nada's dataset spec; see benchmark/README.md. Build and run the VULNERABLE commit; capture actual output (do not substitute expected).",
+  "annotations": [
+    {
+      "id": "jq_CVE-2026-44777",
+      "project": "jq",
+      "cve": "CVE-2026-44777",
+      "vulnerable_repository_url": "https://github.com/jqlang/jq",
+      "vulnerable_commit": "9d223f153c3632a207fa071caaa6292da33ae361",
+      "fixed_commit": "f58787c41835d9b17795730cb04925fdba25c71c",
+      "binary_sha256": "TBD: build at the vulnerable commit and record the stripped-binary hash",
+      "build_provenance": "native build via binary_eval.build; CFLAGS=-O0 -g -fno-pie, LDFLAGS=-no-pie, ./configure --without-oniguruma --disable-shared; gcc 9.2.0",
+      "cwe": "CWE-674",
+      "cwe_name": "Uncontrolled Recursion",
+      "cwe_broader_family": "CWE-400 Uncontrolled Resource Consumption",
+      "vulnerable_function": "module loader / import resolution reached via `jq -L` (confirm against the unstripped symbol map)",
+      "triggering_inputs": [
+        {
+          "path": "inputs/cycle_a.jq",
+          "content": "import \"cycle_b\" as b;\ndef f: null;\n",
+          "sha256": "163235bbfa8db8e6189207d338976e9c938f0ca463350e03685183a85386d28b"
+        },
+        {
+          "path": "inputs/cycle_b.jq",
+          "content": "import \"cycle_a\" as a;\ndef f: null;\n",
+          "sha256": "d250d077621822e8816230b8a8a4e4b0c574cbb8c8619ce22fd4bcde38df3e3b"
+        }
+      ],
+      "execution_command": "./jq -L ./inputs -n 'import \"cycle_a\" as a; null'   (run from the directory containing jq and inputs/)",
+      "expected_vulnerable_behavior": "Unbounded recursive module loading leading to stack exhaustion, a crash, or termination by the operating system.",
+      "captured_output": {
+        "stdout": "",
+        "stderr": "TBD: capture unmodified from the vulnerable binary",
+        "exit_code": "TBD: captured nonzero exit code (e.g., SIGSEGV)"
+      },
+      "ghidra_version": "11.0.3"
+    },
+    {
+      "id": "exiv2_CVE-2021-29464",
+      "project": "exiv2",
+      "cve": "CVE-2021-29464",
+      "vulnerable_repository_url": "https://github.com/Exiv2/exiv2",
+      "vulnerable_commit": "v0.27.3 (any release <= 0.27.3)",
+      "fixed_commit": "f9308839198aca5e68a65194f151a1de92398f54 (released in 0.27.4)",
+      "binary_sha256": "TBD: build the exiv2 CLI at v0.27.3 and record the stripped-binary hash",
+      "build_provenance": "native CMake build of the exiv2 command-line tool at v0.27.3; record exact flags",
+      "cwe": "CWE-787",
+      "cwe_name": "Out-of-bounds Write (heap-based buffer overflow)",
+      "cwe_broader_family": "CWE-119 Improper Restriction of Operations within the Bounds of a Memory Buffer",
+      "vulnerable_function": "Exiv2::Jp2Image::encodeJp2Header (src/jp2image.cpp)",
+      "triggering_inputs": [
+        {
+          "path": "inputs/poc.jp2",
+          "content": "TBD: crafted JP2 image with a malformed header box that overflows during metadata write",
+          "sha256": "TBD"
+        }
+      ],
+      "execution_command": "TBD: metadata-write command on the crafted JP2 (e.g. `exiv2 -M\"set Exif.Image.Make X\" inputs/poc.jp2`); confirm exact PoC that reaches encodeJp2Header",
+      "expected_vulnerable_behavior": "Heap-based buffer overflow when writing metadata into a crafted JP2 image (AddressSanitizer: heap-buffer-overflow WRITE in encodeJp2Header).",
+      "captured_output": {
+        "stdout": "TBD",
+        "stderr": "TBD: capture unmodified (ASAN report if built with sanitizers)",
+        "exit_code": "TBD: captured nonzero exit code"
+      },
+      "ghidra_version": "11.0.3",
+      "advisory": "GHSA-jgm9-5fw5-pw9p"
+    }
+  ]
+}
