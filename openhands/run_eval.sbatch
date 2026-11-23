@@ -42,16 +42,25 @@ VLLM_PID=""
 cleanup() { [ -n "$VLLM_PID" ] && kill "$VLLM_PID" 2>/dev/null || true; }
 trap cleanup EXIT
 
-# --- start vLLM only if it is not already up on this node ---
+# --- serve vLLM ---
+# Pull the server image to a PERSISTENT .sif first. `singularity run docker://...`
+# otherwise rebuilds the SIF (~15 min OCI->SIF conversion) on every run, which ate
+# the readiness window last time. Pulling once moves that cost out of the timer and
+# caches it on scratch for subsequent runs.
+VLLM_SIF="/scratch/$USER/vllm-openai.sif"
+if [ ! -f "$VLLM_SIF" ]; then
+  echo "Pulling vLLM server image to $VLLM_SIF (one-time, ~15 min)..."
+  singularity pull "$VLLM_SIF" docker://vllm/vllm-openai:latest || { echo "vLLM image pull failed"; exit 1; }
+fi
 if ! curl -sf http://127.0.0.1:8000/v1/models >/dev/null 2>&1; then
-  singularity run --nv docker://vllm/vllm-openai:latest \
+  singularity run --nv "$VLLM_SIF" \
     --model "$MODEL_ID" --revision "$REVISION" --served-model-name "$MODEL_ID" \
     --enable-auto-tool-choice --tool-call-parser qwen3_coder \
     --reasoning-parser qwen3 --max-model-len 32768 --enforce-eager \
     > "vllm-${SLURM_JOB_ID}.log" 2>&1 &
   VLLM_PID=$!
-  echo "vLLM starting (pid $VLLM_PID); waiting for readiness (first run downloads weights)..."
-  for i in $(seq 1 180); do           # up to ~30 min
+  echo "vLLM starting (pid $VLLM_PID); waiting for readiness (weights load + KV profiling)..."
+  for i in $(seq 1 240); do           # up to ~40 min
     if curl -sf http://127.0.0.1:8000/v1/models >/dev/null 2>&1; then echo "vLLM ready after ~$((i*10))s"; break; fi
     if ! kill -0 "$VLLM_PID" 2>/dev/null; then echo "vLLM exited early; see vllm-${SLURM_JOB_ID}.log"; exit 1; fi
     sleep 10
