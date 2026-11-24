@@ -13,6 +13,9 @@
 set -uo pipefail
 
 CONFIG="${1:-openhands/config.local.json}"
+CONFIGURATION="${2:-}"   # optional 2nd arg: zero_shot | existence_hinted (default: run both)
+RUNFLAGS=""
+[ -n "$CONFIGURATION" ] && RUNFLAGS="--configuration $CONFIGURATION"
 cd "$HOME/agenticsec-codex-audit" || exit 1
 
 # --- environment (same as the interactive runbook) ---
@@ -56,7 +59,7 @@ if ! curl -sf http://127.0.0.1:8000/v1/models >/dev/null 2>&1; then
   singularity run --nv "$VLLM_SIF" \
     --model "$MODEL_ID" --revision "$REVISION" --served-model-name "$MODEL_ID" \
     --enable-auto-tool-choice --tool-call-parser qwen3_coder \
-    --reasoning-parser qwen3 --max-model-len 32768 --enforce-eager \
+    --reasoning-parser qwen3 --max-model-len 32768 \
     > "vllm-${SLURM_JOB_ID}.log" 2>&1 &
   VLLM_PID=$!
   echo "vLLM starting (pid $VLLM_PID); waiting for readiness (weights load + KV profiling)..."
@@ -70,6 +73,6 @@ fi
 
 # --- run the evaluation (report runs even if a run fails, so partial results are written) ---
 python -m binary_eval preflight --config "$CONFIG" || { echo "preflight failed"; exit 1; }
-python -m binary_eval run       --config "$CONFIG" || echo "run returned nonzero (a run failed/timed out); continuing to report"
+python -m binary_eval run       --config "$CONFIG" $RUNFLAGS || echo "run returned nonzero (a run failed/timed out); continuing to report"
 python -m binary_eval report    --config "$CONFIG"
 echo "DONE. Reports in results/openhands/reports/"
