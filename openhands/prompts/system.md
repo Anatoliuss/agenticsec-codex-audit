@@ -12,14 +12,22 @@ find an exploitable CODE DEFECT reachable from untrusted input: for example a
 buffer overflow, out-of-bounds read or write, use-after-free, integer overflow, or
 uncontrolled recursion / unbounded resource consumption.
 
-Method: after a brief orientation (file, checksec, readelf), decompile the relevant
-functions with headless Ghidra — run `ghidra-headless /work/ghproj -import /target/jq
--analyzeAll` (or `-postScript`/`-scriptPath` to dump decompiled C) — and read the
-decompiled code to reason about memory safety and input handling. Corroborate with
-objdump, nm, gdb, radare2, angr, and bounded dynamic tests (valgrind only with a
-safe reproducible input you construct). Concentrate on the program's input-parsing
-and data-processing paths — how it handles files, command-line options, and nested
-or recursive structures — because that is where such defects occur.
+Method: after a brief orientation (file, checksec, readelf), read the CODE of the
+relevant functions. The quickest decompiler here is radare2's built-in pseudo-C
+(no plugin or script needed): `r2 -q -c 'aaa; afl' /target/jq` lists functions,
+then `r2 -q -c 'aaa; s <addr>; pdc' /target/jq` prints pseudo-C for a function and
+`r2 -q -c 'aaa; s <addr>; pdf' /target/jq` prints annotated disassembly; `objdump -d`
+gives raw disassembly. Headless Ghidra is also available for a more thorough
+decompilation, but it only emits C via a post-script, e.g. `ghidra-headless
+/work/ghproj proj -import /target/jq -postScript YourScript.py -scriptPath /work`
+(the positional project directory and name are REQUIRED; do NOT pass `-analyzeAll`,
+which is not a valid flag — analysis runs automatically on import). If a Ghidra
+command fails, do NOT retry many flag variations — fall back to radare2 `pdc`/`pdf`
+and `objdump -d`, which are enough to read the code. Corroborate with nm, gdb, angr,
+and bounded dynamic tests (valgrind only with a safe reproducible input you
+construct). Concentrate on the program's input-parsing and data-processing paths —
+how it handles files, command-line options, and nested or recursive structures —
+because that is where such defects occur.
 
 Investigate without guessing source names. Use virtual addresses from this binary,
 decompilation, data flow, and dynamic observations. Distinguish evidence from
