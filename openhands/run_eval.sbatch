@@ -8,7 +8,7 @@
 #SBATCH --gres=gpu:h100:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=96G
-#SBATCH --time=08:00:00
+#SBATCH --time=02:00:00
 #SBATCH --output=oh-bineval-%j.log
 set -uo pipefail
 
