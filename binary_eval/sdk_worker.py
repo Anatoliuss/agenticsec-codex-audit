@@ -142,8 +142,25 @@ def main(config_path, prompts_path, output_path, container):
         try:
             conversation.send_message(prompts['task'])
             conversation.run()
+            # The model tends to explore until its step budget is exhausted without ever
+            # emitting a final answer. If no answer was captured, force one concluding turn
+            # that asks only for the JSON finding; on_event above records whatever it emits.
+            forced = False
+            if not (out / 'final.txt').exists():
+                forced = True
+                try:
+                    conversation.send_message(
+                        'STOP: your analysis budget is used up. Do not run any more commands '
+                        'or tools. Output ONLY your final answer now, as a single JSON object '
+                        'matching the required schema, based on the evidence you already '
+                        'gathered: choose the most likely vulnerability and an honest '
+                        'confidence level. Output nothing except the JSON object.')
+                    conversation.run()
+                except Exception as exc:  # never let finalization crash the worker
+                    write_json(out / 'finalization_error.json', dict(error=str(exc)))
             write_json(out / 'worker.json', dict(
-                execution_status=conversation.state.execution_status.value, tool_calls=shell.calls))
+                execution_status=conversation.state.execution_status.value,
+                tool_calls=shell.calls, forced_finalization=forced))
         finally:
             write_json(out / 'metrics.json', llm.metrics.model_dump(mode='json'))
             conversation.close()

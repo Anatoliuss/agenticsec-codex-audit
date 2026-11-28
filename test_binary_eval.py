@@ -145,13 +145,23 @@ class BinaryEvaluationTests(unittest.TestCase):
         a = dict(configuration='zero_shot', comparison_key='A', batch_id='batch', findings=[])
         self.assertEqual(compare_runs([a])['status'], 'incomplete')
 
-    def test_nonfinished_worker_is_not_success_even_with_json(self):
+    def test_nonfinished_worker_without_findings_is_a_failure(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp)
             (out / 'final.txt').write_text(json.dumps({'summary': 'x', 'findings': []}))
             rec = dict(status='completed', worker={'execution_status': 'stuck'},
                        provenance={'binary_sha256': 'a' * 64})
             self.assertEqual(finalize_record(rec, out, {})['status'], 'execution_failure')
+
+    def test_forced_finding_is_ok_even_if_agent_did_not_finish(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            (out / 'final.txt').write_text(json.dumps({'summary': 'x', 'findings': [finding()]}))
+            rec = dict(status='completed', worker={'execution_status': 'stuck'},
+                       provenance={'binary_sha256': 'a' * 64})
+            result = finalize_record(rec, out, {})
+            self.assertEqual(result['status'], 'ok')
+            self.assertIn('note', result)
 
     def test_successful_pair_writes_reports_and_preserves_evidence(self):
         from binary_eval.reporting import generate_reports

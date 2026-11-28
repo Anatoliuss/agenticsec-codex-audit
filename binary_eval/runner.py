@@ -114,14 +114,25 @@ def finalize_record(record, out, truth):
                 record['sdk_tool_calls'] += 1
     if record['status'] == 'completed':
         state = record.get('worker', {}).get('execution_status')
-        if state != 'finished':
-            record.update(status='execution_failure', error=f'Conversation did not finish: {state}')
-    if record['status'] == 'completed':
         try:
             parsed = parse_findings(raw)
-            record.update(status='ok', **parsed)
+            # A finish-less run that still produced findings (via the forced concluding
+            # turn) is a usable result; an empty/invalid one that never finished is a
+            # failure, not a silent "no vulnerability".
+            if state == 'finished' or parsed.get('findings'):
+                record.update(status='ok', **parsed)
+                if state != 'finished':
+                    record['note'] = (f'Agent did not call finish (execution status: {state}); '
+                                      'the finding was captured via a forced concluding turn.')
+            else:
+                record.update(status='execution_failure',
+                              error=f'Conversation did not finish ({state}) and produced no finding')
         except (ValueError, TypeError) as exc:
-            record.update(status='malformed_output' if raw else 'no_output', error=str(exc))
+            if state == 'finished':
+                record.update(status='malformed_output' if raw else 'no_output', error=str(exc))
+            else:
+                record.update(status='execution_failure',
+                              error=f'Conversation did not finish ({state}); no valid finding ({exc})')
     for f in record['findings']:
         for ev in f['evidence']:
             ref = ev['reference']
