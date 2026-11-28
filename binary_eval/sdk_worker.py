@@ -101,6 +101,41 @@ class DockerShell:
             if truncated else '')
 
 
+def force_conclusion(cfg, prompts, out):
+    """Turn the agent's analysis into a final JSON finding with a DIRECT, tool-less
+    model call. The agent keeps calling tools instead of concluding even when told to
+    stop, so we bypass it: no tools are offered here, so the model must emit text. The
+    command log and most recent tool outputs are the evidence."""
+    import litellm
+    from .core import ASSETS
+    log = (out / 'tools.jsonl').read_text(encoding='utf-8') if (out / 'tools.jsonl').exists() else ''
+    outputs = ''
+    for p in sorted(out.glob('tool-*.txt'))[-4:]:
+        outputs += f'\n--- {p.name} ---\n' + p.read_text(encoding='utf-8', errors='replace')[:3000]
+    schema = json.dumps(read_json(ASSETS / 'prompts/findings.schema.json'))
+    user = ('You already finished analyzing /target/jq. Command log:\n' + log[-5000:] +
+            '\n\nMost recent tool outputs:\n' + outputs[-7000:] +
+            '\n\nBased only on this evidence, output ONLY one JSON object matching the schema '
+            'below — no markdown, no prose, nothing else. Choose the single most likely '
+            'vulnerability and an honest confidence; use null for unknown addresses.\n'
+            'Schema: ' + schema)
+    try:
+        resp = litellm.completion(
+            model='openai/' + cfg['model']['id'], api_base=cfg['model']['base_url'],
+            api_key=os.environ.get(cfg['model']['api_key_env'], 'local-no-key'),
+            temperature=0, max_tokens=cfg['sampling']['max_output_tokens'],
+            messages=[{'role': 'system', 'content': prompts['system']},
+                      {'role': 'user', 'content': user}])
+        text = resp.choices[0].message.content or ''
+        i, j = text.find('{'), text.rfind('}')
+        if i != -1 and j > i:
+            (out / 'final.txt').write_text(text[i:j + 1], encoding='utf-8')
+        else:
+            write_json(out / 'finalization_error.json', dict(reason='no JSON object in reply', raw=text[:800]))
+    except Exception as exc:
+        write_json(out / 'finalization_error.json', dict(error=str(exc)))
+
+
 def main(config_path, prompts_path, output_path, container):
     cfg, prompts, out = read_json(config_path), read_json(prompts_path), Path(output_path)
     if importlib.metadata.version('openhands-sdk') != cfg['sdk_version']:
@@ -148,16 +183,7 @@ def main(config_path, prompts_path, output_path, container):
             forced = False
             if not (out / 'final.txt').exists():
                 forced = True
-                try:
-                    conversation.send_message(
-                        'STOP: your analysis budget is used up. Do not run any more commands '
-                        'or tools. Output ONLY your final answer now, as a single JSON object '
-                        'matching the required schema, based on the evidence you already '
-                        'gathered: choose the most likely vulnerability and an honest '
-                        'confidence level. Output nothing except the JSON object.')
-                    conversation.run()
-                except Exception as exc:  # never let finalization crash the worker
-                    write_json(out / 'finalization_error.json', dict(error=str(exc)))
+                force_conclusion(cfg, prompts, out)
             write_json(out / 'worker.json', dict(
                 execution_status=conversation.state.execution_status.value,
                 tool_calls=shell.calls, forced_finalization=forced))
