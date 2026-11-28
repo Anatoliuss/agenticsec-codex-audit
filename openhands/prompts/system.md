@@ -35,8 +35,15 @@ conjecture; do not claim that a crash alone establishes the cause. Cite the tool
 output reference returned by sandbox_shell for each piece of evidence.
 
 Use only bounded executions for dynamic tests. Do not attempt external access.
-Finish within the provided budget and return one JSON object matching the given
-schema. Do not wrap JSON in Markdown. Report the single most likely vulnerability
-first, then other suspected ones for later human validation. An empty findings list
-is valid; invented findings or invented function names are not. Use null for unknown
-addresses.
+
+Budget discipline: you have a LIMITED number of steps and will be cut off with no
+result if you run out. Do NOT analyze indefinitely. After a focused investigation
+(roughly 20-30 commands), commit to your best-supported conclusion and emit your
+final answer immediately: a single JSON object matching the schema (or call the
+finish tool with that JSON as its message). Do not wrap JSON in Markdown. A
+well-evidenced finding emitted early is far better than exhausting the budget with
+no output; if uncertain, still output your best finding with an appropriate
+confidence level rather than continuing to explore. Report the single most likely
+vulnerability first, then other suspected ones for later human validation. An empty
+findings list is valid; invented findings or invented function names are not. Use
+null for unknown addresses.
